@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Petróleo e Gás Brasil</title>
+<meta name="description" content="Painel automático do mercado brasileiro de petróleo e gás: produção, operadores, campos, demanda, preços, comércio, paridade de importação, defasagem e crack spreads.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="vendor/chart-4.4.1.umd.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f4f3ef; --surface-1:#fcfcfb; --border:#e4e2dc; --grid:#ecebe6;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#7a7974;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948;
+  --neutral:#a8a69f; --good:#0a7d3c; --bad:#c2352f;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121211; --surface-1:#1a1a19; --border:#2c2c2a; --grid:#262624;
+    --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#0ca30c; --s7:#9085e9; --s8:#e66767;
+    --neutral:#6d6c66; --good:#3fbf6f; --bad:#f0716b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121211; --surface-1:#1a1a19; --border:#2c2c2a; --grid:#262624;
+  --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#0ca30c; --s7:#9085e9; --s8:#e66767;
+  --neutral:#6d6c66; --good:#3fbf6f; --bad:#f0716b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text-primary);font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1320px;margin:0 auto;padding:24px 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--text-secondary);margin-top:4px}
+.stamp{color:var(--text-secondary);font-size:13px;text-align:right}
+.stamp b{color:var(--text-primary);font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:middle}
+.dot.warn{background:var(--s4)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.kpi .lab{font-size:12px;color:var(--text-secondary);font-weight:500}
+.kpi .val{font-size:26px;font-weight:700;margin:4px 0 2px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .val small{font-size:13px;font-weight:500;color:var(--text-secondary);margin-left:3px}
+.kpi .delta{font-size:12px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.up{color:var(--good)} .down{color:var(--bad)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px 16px 12px;min-width:0}
+.card.wide{grid-column:1/-1}
+.card h2{font-size:15px;margin:0;font-weight:600}
+.card .desc{color:var(--text-secondary);font-size:12.5px;margin:2px 0 10px}
+.card .src{color:var(--text-muted);font-size:11.5px;margin-top:8px}
+.chart{position:relative;height:300px}
+.chart.tall{height:380px}
+.chart.short{height:170px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px}
+.seg button{border:0;background:transparent;color:var(--text-secondary);font:inherit;font-size:12.5px;padding:5px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--text-primary);color:var(--surface-1)}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.note{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px;color:var(--text-secondary);font-size:13px}
+.note h2{font-size:15px;color:var(--text-primary);margin:0 0 8px}
+.note code{font-size:12px}
+.note ul{margin:6px 0 0;padding-left:18px}
+.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text-secondary);margin-left:6px;vertical-align:2px}
+.err{color:var(--bad)}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}.chart{height:260px}.chart.tall{height:340px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Petróleo e Gás no Brasil</h1>
+      <div class="sub">Produção, demanda, preços, comércio, paridade de importação e margens. Atualização automática a cada hora.</div>
+    </div>
+    <div class="stamp" id="stamp">Carregando…</div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="card wide">
+      <div class="row"><div><h2>1. Produção nacional</h2><div class="desc" id="d-prod">Média diária no mês, por ambiente.</div></div>
+        <div class="seg" data-for="prod"><button aria-pressed="true" data-v="oil">Petróleo</button><button aria-pressed="false" data-v="gas">Gás natural</button></div></div>
+      <div class="chart"><canvas id="c-prod"></canvas></div>
+      <div class="src">Fonte: ANP, produção por estado e localização (volumes oficiais); divisão pré-sal/pós-sal pela participação nos arquivos de produção por poço e zona da ANP.</div>
+    </div>
+
+    <div class="card">
+      <h2>2. Produção por operador</h2><div class="desc" id="d-op">Petróleo operado no último mês disponível.</div>
+      <div class="chart tall"><canvas id="c-op"></canvas></div>
+      <div class="src">Fonte: ANP, produção por poço e zona. Produção atribuída 100% ao operador do campo (não é participação societária).</div>
+    </div>
+
+    <div class="card">
+      <h2>3. Maiores campos</h2><div class="desc" id="d-campos">Top 15 em petróleo, comparado ao mesmo mês do ano anterior.</div>
+      <div class="chart tall"><canvas id="c-campos"></canvas></div>
+      <div class="src">Fonte: ANP. Campos com área de excedente da cessão onerosa somados ao campo principal.</div>
+    </div>
+
+    <div class="card">
+      <h2>4. Demanda de combustíveis</h2><div class="desc">Vendas das distribuidoras, mil m³ por mês.</div>
+      <div class="seg" data-for="vendas"><button aria-pressed="true" data-v="mm12">Média móvel 12m</button><button aria-pressed="false" data-v="raw">Mensal</button></div>
+      <div class="chart"><canvas id="c-vendas"></canvas></div>
+      <div class="src">Fonte: ANP, vendas de derivados de petróleo e etanol.</div>
+    </div>
+
+    <div class="card">
+      <h2>5. Preço na bomba vs. Brent</h2><div class="desc" id="d-bomba">Índice, jan/2019 = 100. Brent convertido para R$/litro pela PTAX.</div>
+      <div class="chart"><canvas id="c-bomba"></canvas></div>
+      <div class="src">Fontes: ANP, levantamento semanal de preços; EIA (Brent); Banco Central (PTAX).</div>
+    </div>
+
+    <div class="card wide">
+      <div class="row"><div><h2>6. Comércio exterior</h2><div class="desc" id="d-com">Exportação de petróleo bruto por destino, mil barris por dia.</div></div>
+        <div class="seg" data-for="com"><button aria-pressed="true" data-v="exp">Exportação de petróleo</button><button aria-pressed="false" data-v="imp">Importação de derivados</button></div></div>
+      <div class="chart"><canvas id="c-com"></canvas></div>
+      <div class="src">Fonte: Comex Stat (MDIC), NCM 2709 (petróleo bruto) e 2710 (derivados). Barris estimados pelo peso com densidade de 0,87.</div>
+    </div>
+
+    <div class="card wide">
+      <div class="row"><div><h2>7. Preço Petrobras vs. paridade de importação</h2><div class="desc" id="d-par">R$ por litro, sem tributos, média semanal. Paridade calculada por nós.</div></div>
+        <div class="seg" data-for="par"><button aria-pressed="true" data-v="diesel">Diesel S10</button><button aria-pressed="false" data-v="gasolina">Gasolina A</button></div></div>
+      <div class="chart"><canvas id="c-par"></canvas></div>
+      <div class="desc" style="margin-top:12px">Defasagem: preço Petrobras ÷ paridade − 1. Negativo = Petrobras vende abaixo da paridade.</div>
+      <div class="chart short"><canvas id="c-desc"></canvas></div>
+      <div class="src">Fontes: Petrobras, tabelas de preços de venda às distribuidoras (Cubatão-SP, ponto vizinho ao porto de Santos); EIA, spot no Golfo dos EUA; Banco Central (PTAX). Custos logísticos calibrados automaticamente contra a PPI semanal da ANP (Santos).</div>
+    </div>
+
+    <div class="card wide">
+      <div class="row"><div><h2>8. Crack spreads</h2><div class="desc">US$ por barril acima do Brent, média mensal.</div></div>
+        <div class="seg" data-for="crk"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
+      <div class="chart"><canvas id="c-crk"></canvas></div>
+      <div class="src">Crack USGC = produto no Golfo dos EUA × 42 − Brent (EIA). Crack Brasil implícito = preço Petrobras em US$/bbl − Brent.</div>
+    </div>
+  </section>
+
+  <section class="note">
+    <h2>Metodologia e premissas</h2>
+    <div id="metodo"></div>
+    <ul>
+      <li><b>Paridade de importação (PPI)</b> = (preço spot no Golfo dos EUA em US$/galão ÷ 3,785 + <i>k</i>) × PTAX. O termo <i>k</i> (frete, seguro, perdas, custos portuários, AFRMM e armazenagem, em US$/litro) é recalibrado sozinho toda semana: mediana das últimas <span id="calw">4</span> semanas da diferença entre a PPI oficial da ANP para Santos e o preço USGC convertido. A PPI da ANP serve só para essa calibração; o resultado exibido é o nosso cálculo diário.</li>
+      <li><b>Defasagem</b> = preço Petrobras sem tributos ÷ PPI − 1. Não usa a defasagem da ABICOM. Quando há subvenção federal ao diesel, mostramos o preço de tabela e o preço líquido do desconto.</li>
+      <li><b>Pré-sal</b>: participação pela classificação da ANP por poço (arquivos até 2025) e, nos arquivos mais novos sem essa coluna, pela zona produtora (Barra Velha, Itapema, Macabu, Coqueiros, Piçarras).</li>
+      <li><b>Operador</b>: mapa campo → operador do último arquivo da ANP com essa coluna (dez/2023), agrupando empresas do mesmo grupo; campos que entraram em produção depois aparecem como "Não mapeado", exceto Bacalhau (Equinor).</li>
+      <li><b>Premissas deste v1</b> (perguntas em aberto no escopo): cobre upstream e downstream; uso pessoal; rótulos em português.</li>
+    </ul>
+    <div id="fontes" style="margin-top:10px"></div>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const nf = (d=0) => new Intl.NumberFormat('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmt = (v,d=0) => v==null||isNaN(v) ? '–' : nf(d).format(v);
+const pctf = (v,d=1) => v==null ? '–' : (v>0?'+':'') + nf(d).format(v*100) + '%';
+const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); };
+const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
+const S = i => css('--s'+i);
+let D = null, META = null; const charts = {};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel'};
+
+function base(opts={}){
+  const tp=css('--text-secondary'), grid=css('--grid');
+  return {
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{
+      legend:{position:'top', align:'start', labels:{color:tp, boxWidth:10, boxHeight:10, usePointStyle:true, pointStyle:'rectRounded', font:{size:12}}},
+      tooltip:{backgroundColor:css('--surface-1'), titleColor:css('--text-primary'), bodyColor:css('--text-primary'), borderColor:css('--border'), borderWidth:1, padding:10, boxPadding:4, usePointStyle:true,
+        callbacks: opts.tip ? {label: opts.tip} : {}}
+    },
+    scales:{
+      x:{grid:{display:false}, ticks:{color:tp, maxRotation:0, autoSkip:true, autoSkipPadding:14, font:{size:11}}, border:{color:css('--border')}, stacked:!!opts.stacked},
+      y:{grid:{color:grid}, ticks:{color:tp, font:{size:11}, callback: opts.ytick || (v=>fmt(v))}, border:{display:false}, stacked:!!opts.stacked, beginAtZero: opts.zero!==false, title: opts.ytitle?{display:true,text:opts.ytitle,color:tp,font:{size:11}}:undefined}
+    },
+    elements:{line:{borderWidth:2, tension:0.15}, point:{radius:0, hoverRadius:4, hitRadius:8}, bar:{borderRadius:4, borderSkipped:'start'}}
+  };
+}
+function draw(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart(document.getElementById(id), cfg); }
+const line = (label, data, color, extra={}) => ({type:'line', label, data, borderColor:color, backgroundColor:color, ...extra});
+
+// ---------- KPIs
+function kpis(){
+  const k = D.kpis||{}, el=$('#kpis'); el.innerHTML='';
+  const d = (v,lab) => v==null?'':`<span class="${v>=0?'up':'down'}">${pctf(v)}</span> ${lab}`;
+  const tile=(lab,val,unit,delta)=>{ el.insertAdjacentHTML('beforeend',`<div class="kpi"><div class="lab">${lab}</div><div class="val">${val}<small>${unit||''}</small></div><div class="delta">${delta||''}</div></div>`); };
+  if(k.producao){ tile(`Petróleo · ${mlab(k.producao.mes)}`, fmt(k.producao.petroleo/1e6,2), 'mi bbl/d', [d(k.producao.petroleo_mm,'m/m'), d(k.producao.petroleo_aa,'a/a')].join(' · '));
+    tile(`Gás natural · ${mlab(k.producao.mes)}`, fmt(k.producao.gas,1), 'mi m³/d', [d(k.producao.gas_mm,'m/m'), d(k.producao.gas_aa,'a/a')].join(' · ')); }
+  if(k.presal) tile(`Pré-sal no petróleo · ${mlab(k.presal.mes)}`, fmt(k.presal.share*100,1), '%', k.presal.share_aa!=null?`${fmt(k.presal.share_aa*100,1)}% um ano antes`:'');
+  if(k.brent) tile(`Brent · ${dlab(k.brent.data)}`, fmt(k.brent.valor,2), 'US$/bbl', [d(k.brent.var_30d,'30d'), d(k.brent.var_1a,'12m')].join(' · '));
+  if(k.exportacao) tile(`Exportação de petróleo · ${mlab(k.exportacao.mes)}`, fmt(k.exportacao.mil_bbl_d,0), 'mil bbl/d', `US$ ${fmt(k.exportacao.usd_mi/1000,1)} bi · ${d(k.exportacao.aa,'a/a')}`);
+  if(k.bomba){ const b=k.bomba; tile(`Diesel S10 na bomba · ${b.diesel_s10?dlab(b.diesel_s10.data):''}`, fmt(b.diesel_s10&&b.diesel_s10.preco,2), 'R$/L', `Gasolina: R$ ${fmt(b.gasolina&&b.gasolina.preco,2)}/L`); }
+  if(k.defasagem){ const f=k.defasagem;
+    tile(`Defasagem diesel · ${dlab(f.data)}`, pctf(f.diesel), '', f.diesel_liquido!=null && Math.abs(f.diesel_liquido-f.diesel)>0.001 ? `Líquido da subvenção: ${pctf(f.diesel_liquido)}` : 'vs. paridade de importação');
+    tile(`Defasagem gasolina · ${dlab(f.data)}`, pctf(f.gasolina), '', 'vs. paridade de importação'); }
+  if(k.ptax) tile(`Dólar PTAX · ${dlab(k.ptax.data)}`, fmt(k.ptax.valor,4), 'R$', '');
+}
+
+// ---------- 1 produção
+function cProd(){
+  const P=(D.producao||[]).filter(r=>r.mes>='2015-01'), L=P.map(r=>mlab(r.mes));
+  let ds, unit;
+  if(state.prod==='oil'){
+    unit='mil bbl/d';
+    const has = P.some(r=>r.petroleo_presal!=null);
+    ds = has ? [
+      {label:'Pré-sal', data:P.map(r=>r.petroleo_presal!=null? r.petroleo_presal/1e3 : null), backgroundColor:S(1), borderColor:S(1)},
+      {label:'Pós-sal (mar)', data:P.map(r=>r.petroleo_presal!=null? (r.petroleo_mar-r.petroleo_presal)/1e3 : r.petroleo_mar/1e3), backgroundColor:S(2), borderColor:S(2)},
+      {label:'Terra', data:P.map(r=>r.petroleo_terra/1e3), backgroundColor:S(3), borderColor:S(3)}
+    ] : [
+      {label:'Mar', data:P.map(r=>r.petroleo_mar/1e3), backgroundColor:S(1), borderColor:S(1)},
+      {label:'Terra', data:P.map(r=>r.petroleo_terra/1e3), backgroundColor:S(3), borderColor:S(3)}];
+  } else {
+    unit='mi m³/d';
+    ds=[{label:'Mar', data:P.map(r=>r.gas_mar), backgroundColor:S(1), borderColor:S(1)},
+        {label:'Terra', data:P.map(r=>r.gas_terra), backgroundColor:S(3), borderColor:S(3)}];
+  }
+  ds.forEach(x=>{x.type='line'; x.fill=true; x.borderWidth=1; x.backgroundColor=x.backgroundColor+'cc';});
+  $('#d-prod').textContent = state.prod==='oil' ? 'Petróleo (óleo + condensado), média diária no mês, mil barris por dia.' : 'Gás natural, média diária no mês, milhões de m³ por dia.';
+  draw('c-prod',{type:'line', data:{labels:L, datasets:ds}, options:base({stacked:true, tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y, state.prod==='oil'?0:1)} ${unit}`})});
+}
+
+// ---------- 2 operadores
+function cOp(){
+  const O=D.operadores; if(!O) return;
+  $('#d-op').textContent=`Participação no petróleo operado, ${mlab(O.mes)}.`;
+  const R=O.ranking;
+  const o=base({tip:c=>{const r=R[c.dataIndex]; return ` ${fmt(r.share*100,1)}% · ${fmt(r.bbl_d/1e3,0)} mil bbl/d`;}, ytick:v=>v});
+  o.indexAxis='y'; o.plugins.legend.display=false;
+  o.scales.x.ticks.callback=v=>fmt(v,0)+'%'; o.scales.x.grid={color:css('--grid')}; o.scales.y.grid={display:false};
+  o.scales.y.ticks.callback=function(v){return this.getLabelForValue(v)};
+  draw('c-op',{type:'bar', data:{labels:R.map(r=>r.operador), datasets:[{data:R.map(r=>r.share*100), backgroundColor:S(1), barThickness:16}]}, options:o});
+}
+
+// ---------- 3 campos
+function cCampos(){
+  const C=D.campos; if(!C) return;
+  $('#d-campos').textContent=`Top 15 em petróleo, mil bbl/d, ${mlab(C.mes)}${C.mes_comparacao?' vs. '+mlab(C.mes_comparacao):''}.`;
+  const T=C.top;
+  const o=base({tip:c=>{const r=T[c.dataIndex]; const v=c.datasetIndex===0?r.bbl_d:r.bbl_d_ano_anterior; let s=` ${c.dataset.label}: ${fmt(v/1e3,0)} mil bbl/d`; if(c.datasetIndex===0){ s+=` · ${r.operador}`; if(r.bbl_d_ano_anterior) s+=` · ${pctf(r.bbl_d/r.bbl_d_ano_anterior-1)}`;} return s;}});
+  o.indexAxis='y'; o.scales.x.grid={color:css('--grid')}; o.scales.y.grid={display:false};
+  o.scales.x.ticks.callback=v=>fmt(v); o.scales.y.ticks.callback=function(v){return this.getLabelForValue(v)};
+  const ds=[{label:mlab(C.mes), data:T.map(r=>r.bbl_d/1e3), backgroundColor:S(1), barThickness:8}];
+  if(C.mes_comparacao) ds.push({label:mlab(C.mes_comparacao), data:T.map(r=>r.bbl_d_ano_anterior==null?null:r.bbl_d_ano_anterior/1e3), backgroundColor:css('--neutral'), barThickness:8});
+  draw('c-campos',{type:'bar', data:{labels:T.map(r=>r.campo), datasets:ds}, options:o});
+}
+
+// ---------- 4 vendas
+function cVendas(){
+  const V=D.vendas||[]; const keys=[['diesel','Diesel',1],['gasolina_c','Gasolina C',2],['etanol','Etanol hidratado',3],['glp','GLP',4]];
+  const mm = (arr,i,k)=>{ if(state.vendas==='raw') return arr[i][k]??null; if(i<11) return null; let s=0; for(let j=i-11;j<=i;j++){ if(arr[j][k]==null) return null; s+=arr[j][k]; } return s/12; };
+  const idx=V.map((r,i)=>i).filter(i=>V[i].mes>='2016-01');
+  draw('c-vendas',{type:'line', data:{labels:idx.map(i=>mlab(V[i].mes)), datasets:keys.map(([k,l,c])=>line(l, idx.map(i=>mm(V,i,k)), S(c)))}, options:base({tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,0)} mil m³`})});
+}
+
+// ---------- 5 bomba vs brent
+function cBomba(){
+  const P=D.precos_bomba?.mensal||[], M=Object.fromEntries((D.mercado?.mensal||[]).map(r=>[r.mes,r]));
+  const rows=P.filter(r=>r.mes>='2019-01' && M[r.mes]); if(!rows.length) return;
+  const b0=rows[0]; const bm0=M[b0.mes].brent_brl_l;
+  const ix=(v,b)=>v==null||!b?null:v/b*100;
+  draw('c-bomba',{type:'line', data:{labels:rows.map(r=>mlab(r.mes)), datasets:[
+    line('Diesel S10 (bomba)', rows.map(r=>ix(r.diesel_s10,b0.diesel_s10)), S(1)),
+    line('Gasolina comum (bomba)', rows.map(r=>ix(r.gasolina,b0.gasolina)), S(2)),
+    line('Brent em R$/L', rows.map(r=>ix(M[r.mes].brent_brl_l,bm0)), S(7))
+  ]}, options:base({zero:false, tip:c=>{const r=rows[c.dataIndex]; const raw=[r.diesel_s10,r.gasolina,M[r.mes].brent_brl_l][c.datasetIndex]; return ` ${c.dataset.label}: ${fmt(c.parsed.y,0)} (R$ ${fmt(raw,2)}/L)`;}})});
+}
+
+// ---------- 6 comércio
+function cCom(){
+  const exp=state.com==='exp'; const A=(exp?D.comercio?.export_petroleo:D.comercio?.import_derivados)||[];
+  const rows=A.filter(r=>r.mes>='2019-01');
+  const groups = exp ? [['China',1],['EUA',2],['Europa',3],['Índia',7],['Outros',null]] : [['EUA',1],['Rússia',2],['Oriente Médio e Índia',3],['Europa',7],['Outros',null]];
+  $('#d-com').textContent = exp ? 'Exportação de petróleo bruto por destino, mil barris por dia.' : 'Importação de derivados (diesel, gasolina, QAV e outros) por origem, US$ milhões FOB.';
+  const ds=groups.map(([g,c])=>({label:g, data:rows.map(r=>r[g]??0), backgroundColor:c?S(c):css('--neutral'), borderColor:css('--surface-1'), borderWidth:{top:2}, borderSkipped:'start', borderRadius:0}));
+  const o=base({stacked:true, tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,0)} ${exp?'mil bbl/d':'US$ mi'}`});
+  draw('c-com',{type:'bar', data:{labels:rows.map(r=>mlab(r.mes)), datasets:ds}, options:o});
+}
+
+// ---------- 7 paridade
+function cPar(){
+  const P=D.paridade; if(!P) return; const p=state.par;
+  const W=P.semanal.filter(r=>r['pb_'+p]!=null);
+  const L=W.map(r=>dlab(r.semana));
+  const hasLiq=W.some(r=>r['pbliq_'+p]!=null && Math.abs(r['pbliq_'+p]-r['pb_'+p])>1e-4);
+  const ds=[line('Paridade de importação (nosso cálculo)', W.map(r=>r['ppi_'+p]), S(2)),
+            line('Petrobras, preço de tabela', W.map(r=>r['pb_'+p]), S(1), {stepped:false})];
+  if(hasLiq) ds.push(line('Petrobras, líquido da subvenção', W.map(r=>r['pbliq_'+p]), S(3)));
+  ds.push(line('PPI ANP (referência de calibração)', W.map(r=>r['anp_ppi_'+p]??null), css('--neutral'), {borderWidth:1, borderDash:[4,3], spanGaps:true}));
+  draw('c-par',{type:'line', data:{labels:L, datasets:ds}, options:base({zero:false, ytick:v=>'R$ '+fmt(v,2), tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.y,3)}/L`})});
+  const dd=[{label:'Defasagem (tabela)', data:W.map(r=>r['desc_'+p]*100), backgroundColor:W.map(r=>r['desc_'+p]<0?css('--bad'):css('--good')), barPercentage:1, categoryPercentage:.9, borderRadius:0}];
+  if(hasLiq) dd.push({type:'line', label:'Defasagem (líquido da subvenção)', data:W.map(r=>r['descliq_'+p]==null?null:r['descliq_'+p]*100), borderColor:S(3), backgroundColor:S(3)});
+  const o=base({zero:false, ytick:v=>fmt(v,0)+'%', tip:c=>` ${c.dataset.label}: ${pctf(c.parsed.y/100)}`});
+  o.plugins.legend.display=hasLiq;
+  draw('c-desc',{type:'bar', data:{labels:L, datasets:dd}, options:o});
+  const m=P.metodo?.[p];
+  $('#d-par').textContent=`R$ por litro, sem tributos, média semanal. Paridade calculada por nós${m&&m.k_atual_usd_bbl!=null?` (custos logísticos calibrados: US$ ${fmt(m.k_atual_usd_bbl,2)}/bbl)`:''}.`;
+}
+
+// ---------- 8 cracks
+function cCrk(){
+  const C=(D.cracks||[]).filter(r=>r.mes>='2019-01'); const p=state.crk;
+  const ds=[line(`USGC ${p==='diesel'?'diesel (ULSD)':'gasolina'}`, C.map(r=>r['usgc_'+p]??null), S(2)),
+            line(`Brasil implícito, Petrobras ${p==='diesel'?'diesel S10':'gasolina A'}`, C.map(r=>r['br_'+p]??null), S(1))];
+  if(C.some(r=>r['brliq_'+p]!=null)) ds.push(line('Brasil implícito, líquido da subvenção', C.map(r=>r['brliq_'+p]??null), S(3)));
+  draw('c-crk',{type:'line', data:{labels:C.map(r=>mlab(r.mes)), datasets:ds}, options:base({zero:false, ytick:v=>'US$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: US$ ${fmt(c.parsed.y,1)}/bbl`})});
+}
+
+function stamp(){
+  const el=$('#stamp'); if(!META){ el.textContent=''; return; }
+  const t=new Date(META.verificado_em), ch=META.dados_alterados_em?new Date(META.dados_alterados_em):null;
+  const f=x=>x.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+  const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok).map(([k])=>k);
+  el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte com falha nesta rodada (mantido o último dado): ${bad.join(', ')}</span>`:''}`;
+  const names={eia:"EIA (Brent, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  $('#fontes').innerHTML='<b>Situação das fontes na última rodada:</b> '+Object.entries(META.fontes||{}).map(([k,v])=>`${names[k]||k} ${v.ok?'✓':'✗'}`).join(' · ');
+}
+
+function metodo(){
+  const M=D.paridade?.metodo; if(!M) return;
+  const t=p=>{const m=M[p]; if(!m) return ''; return `${p==='diesel'?'Diesel':'Gasolina'}: custos logísticos atuais US$ ${fmt(m.k_atual_usd_bbl,2)}/bbl; diferença média do nosso cálculo para a PPI da ANP nas últimas ${m.semanas_comparadas||'–'} semanas: ${fmt((m.erro_medio_abs_vs_anp||0)*100,1)}%.`};
+  $('#metodo').innerHTML=`<p style="margin:0 0 6px">${t('diesel')}<br>${t('gasolina')}<br>A gasolina usa a cotação convencional do Golfo dos EUA, cuja especificação muda com a estação; por isso ela acompanha a referência da ANP com mais folga que o diesel.</p>`;
+  if(M.diesel?.janela_semanas) $('#calw').textContent=M.diesel.janela_semanas;
+}
+function renderAll(){ metodo(); kpis(); cProd(); cOp(); cCampos(); cVendas(); cBomba(); cCom(); cPar(); cCrk(); stamp(); }
+
+document.querySelectorAll('.seg').forEach(seg=>seg.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+  state[seg.dataset.for]=b.dataset.v; renderAll();
+}));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>D&&renderAll());
+
+async function load(){
+  try{
+    const bust='?t='+Date.now();
+    const [d,m]=await Promise.all([fetch('data/dashboard.json'+bust).then(r=>r.json()), fetch('data/meta.json'+bust).then(r=>r.ok?r.json():null).catch(()=>null)]);
+    D=d; META=m; renderAll();
+  }catch(e){ $('#stamp').innerHTML='<span class="err">Não foi possível carregar os dados.</span>'; console.error(e); }
+}
+load();
+setInterval(load, 15*60*1000); // a página busca dados novos sozinha
+</script>
+</body>
+</html>
