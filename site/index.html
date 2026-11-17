@@ -111,9 +111,10 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
     </div>
 
     <div class="card">
-      <h2>5. Preço na bomba vs. Brent</h2><div class="desc" id="d-bomba">Índice, jan/2019 = 100. Brent convertido para R$/litro pela PTAX.</div>
+      <div class="row"><div><h2>5. Do Brent à bomba</h2><div class="desc" id="d-bomba">R$ por litro, média mensal, mesma escala.</div></div>
+        <div class="seg" data-for="bomba"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
       <div class="chart"><canvas id="c-bomba"></canvas></div>
-      <div class="src">Fontes: ANP, levantamento semanal de preços; EIA (Brent); Banco Central (PTAX).</div>
+      <div class="src">Brent e paridade em R$/L pela PTAX. Preço Petrobras sem tributos (Cubatão-SP). Bomba inclui tributos, margens e mistura obrigatória (biodiesel no diesel B, etanol na gasolina C). Fontes: EIA, Banco Central, Petrobras, ANP.</div>
     </div>
 
     <div class="card wide">
@@ -165,7 +166,7 @@ const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); }
 const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
 const S = i => css('--s'+i);
 let D = null, META = null; const charts = {};
-const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel'};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel'};
 
 function base(opts={}){
   const tp=css('--text-secondary'), grid=css('--grid');
@@ -261,17 +262,24 @@ function cVendas(){
   draw('c-vendas',{type:'line', data:{labels:idx.map(i=>mlab(V[i].mes)), datasets:keys.map(([k,l,c])=>line(l, idx.map(i=>mm(V,i,k)), S(c)))}, options:base({tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,0)} mil m³`})});
 }
 
-// ---------- 5 bomba vs brent
+// ---------- 5 do Brent à bomba (níveis em R$/L)
 function cBomba(){
-  const P=D.precos_bomba?.mensal||[], M=Object.fromEntries((D.mercado?.mensal||[]).map(r=>[r.mes,r]));
-  const rows=P.filter(r=>r.mes>='2019-01' && M[r.mes]); if(!rows.length) return;
-  const b0=rows[0]; const bm0=M[b0.mes].brent_brl_l;
-  const ix=(v,b)=>v==null||!b?null:v/b*100;
-  draw('c-bomba',{type:'line', data:{labels:rows.map(r=>mlab(r.mes)), datasets:[
-    line('Diesel S10 (bomba)', rows.map(r=>ix(r.diesel_s10,b0.diesel_s10)), S(1)),
-    line('Gasolina comum (bomba)', rows.map(r=>ix(r.gasolina,b0.gasolina)), S(2)),
-    line('Brent em R$/L', rows.map(r=>ix(M[r.mes].brent_brl_l,bm0)), S(7))
-  ]}, options:base({zero:false, tip:c=>{const r=rows[c.dataIndex]; const raw=[r.diesel_s10,r.gasolina,M[r.mes].brent_brl_l][c.datasetIndex]; return ` ${c.dataset.label}: ${fmt(c.parsed.y,0)} (R$ ${fmt(raw,2)}/L)`;}})});
+  const p=state.bomba;
+  const P=Object.fromEntries((D.precos_bomba?.mensal||[]).map(r=>[r.mes,r]));
+  const M=Object.fromEntries((D.mercado?.mensal||[]).map(r=>[r.mes,r]));
+  const W={}; (D.paridade?.semanal||[]).forEach(r=>{ const m=r.semana.slice(0,7); (W[m]=W[m]||[]).push(r); });
+  const avg=(m,k)=>{ const v=(W[m]||[]).map(r=>r[k]).filter(x=>x!=null); return v.length? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  const months=Object.keys(M).filter(m=>m>='2019-08' && P[m]).sort();
+  const pump = p==='diesel' ? 'diesel_s10' : 'gasolina';
+  const ds=[
+    line(p==='diesel'?'Bomba, diesel S10 (com tributos)':'Bomba, gasolina C (com tributos)', months.map(m=>P[m][pump]??null), S(1)),
+    line('Paridade de importação (nosso cálculo)', months.map(m=>avg(m,'ppi_'+p)), S(2)),
+    line(p==='diesel'?'Petrobras diesel S10, tabela (sem tributos)':'Petrobras gasolina A (sem tributos)', months.map(m=>avg(m,'pb_'+p)), S(3)),
+  ];
+  if(months.some(m=>{const a=avg(m,'pbliq_'+p), b=avg(m,'pb_'+p); return a!=null&&b!=null&&Math.abs(a-b)>1e-4;}))
+    ds.push(line('Petrobras, líquido da subvenção', months.map(m=>avg(m,'pbliq_'+p)), S(6), {borderDash:[5,3]}));
+  ds.push(line('Brent (petróleo bruto)', months.map(m=>M[m].brent_brl_l), S(7)));
+  draw('c-bomba',{type:'line', data:{labels:months.map(mlab), datasets:ds}, options:base({ytick:v=>'R$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.y,2)}/L`})});
 }
 
 // ---------- 6 comércio
