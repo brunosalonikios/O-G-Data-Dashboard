@@ -1,0 +1,22 @@
+name: probe-ar
+on:
+  push:
+    branches: [probe-ar]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B=https://datos.energia.gob.ar/dataset/590d1284-fd6d-4686-afd8-b3da5d90a6e9/resource
+          for u in \
+            "$B/2c1f455e-0103-4d51-8f94-a49c939ac0a1/download/produccin-de-petrleo-promedio-diaria-por-empresa.csv" \
+            "$B/f640943b-c049-4124-925c-6463c67b2e9a/download/produccin-petrleo-sesco-tight-y-shale-captulo-iv-total-pais.csv" \
+            "$B/419094dd-2905-4ac3-9398-e81513013e5e/download/produccin-de-gas-promedio-diaria-por-empresa.csv" \
+            "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector.csv" \
+            "https://datos.energia.gob.ar/dataset/708f9ab4-829b-4f02-b507-f303c5bc4800/resource/d6ecf302-049b-459d-bca2-b638ea70518b/download/precios-y-volumenes-a-partir-de-2018.csv" \
+            "https://datos.energia.gob.ar/dataset/1c181390-5045-475e-94dc-410429be4b17/resource/80ac25de-a44a-4445-9215-090cf55cfda5/download/precios-en-surtidor-resolucin-3142016.csv" \
+            "$B/83a2b597-b087-4815-b17d-cd70990d6a79/download/produccin-petrleo-sesco-tight-y-shale-captulo-iv.csv" ; do
+            echo "=================== $u"
+            curl -sSL -m 180 -o f.csv -w 'HTTP %{http_code} bytes %{size_download}\n' "$u" || true
+            head -c 1200 f.csv | iconv -f latin1 -t utf8 || true; echo; echo '--- tail'; tail -c 600 f.csv || true; echo
+          done
