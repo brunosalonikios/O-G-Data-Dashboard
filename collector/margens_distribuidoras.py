@@ -154,9 +154,9 @@ def _ipiranga_release(pdf: bytes):
             tri = [f"20{per.group(i + 1)}-T{per.group(i)}" for i in (1, 3, 5)]
             rec = re.search(rf"Margem EBITDA Ajustado recorrente \(R\$/m.\)\s+({NUM})\s+({NUM})\s+({NUM})", t)
             if rec:
-                return {q: float(_n(x)) for q, x in zip(tri, rec.groups())}
+                return {q: float(_n(x)) for q, x in zip(tri, rec.groups())}, True
             if vol and eb and len(eb) == 3:
-                return {q: round(_n(e) * 1000 / _n(v), 1) for q, e, v in zip(tri, eb, vol.groups()) if _n(v) > 0}
+                return {q: round(_n(e) * 1000 / _n(v), 1) for q, e, v in zip(tri, eb, vol.groups()) if _n(v) > 0}, False
     return None
 
 
@@ -180,6 +180,7 @@ def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
                     if d not in rel or int(r["Versao"]) > int(rel[d]["Versao"]):
                         rel[d] = r
     vals = dict(cache.get("valores", {}))
+    recs = set(cache.get("recorrente", []))           # trimestres com a linha recorrente do release
     feitos = set(cache.get("releases", []))
     n = 0
     for d in sorted(rel, reverse=True):                 # mais recentes primeiro
@@ -193,12 +194,16 @@ def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
             continue
         feitos.add(d)
         if res:
-            cur = list(res)[0]
-            vals[cur] = res[cur]                        # o trimestre do release sempre prevalece
-            for q, v in list(res.items())[1:]:
-                vals.setdefault(q, v)                   # comparativos só preenchem buracos
+            res, is_rec = res
+            for i, (q, v) in enumerate(res.items()):
+                cur = i == 0                            # o trimestre do próprio release
+                if is_rec and (cur or q not in recs):   # recorrente sempre vence o cálculo ajustado
+                    vals[q] = v
+                    recs.add(q)
+                elif not is_rec and q not in recs and (cur or q not in vals):
+                    vals[q] = v
     print(f"Ipiranga: {len(rel)} releases listados, {n} baixados, {len(vals)} trimestres")
-    cache["valores"], cache["releases"] = vals, sorted(feitos)
+    cache["valores"], cache["releases"], cache["recorrente"] = vals, sorted(feitos), sorted(recs)
     serie = [{"tri": q, "rotulo": f"{q[-1]}T{q[2:4]}", "valor": vals[q]} for q in sorted(vals)]
     return {"arquivo": "releases de resultados da Ultrapar (CVM)", "data_arquivo": max(feitos) if feitos else "", "serie": serie}
 
