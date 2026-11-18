@@ -1,0 +1,39 @@
+name: Relógio (dispara a atualização de hora em hora)
+
+# O cron do GitHub atrasa ou pula execuções em repositórios com pouca atividade.
+# Este "relógio" fica rodando: a cada ~60 min dispara o workflow de atualização e,
+# depois de ~5 h, dispara a si mesmo para continuar. O cron abaixo só religa o
+# relógio caso a corrente seja interrompida.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 */6 * * *"
+  push:
+    branches: [main]
+    paths: [".github/workflows/relogio.yml"]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: relogio
+  cancel-in-progress: true
+
+jobs:
+  tique:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Disparar atualização a cada hora
+        run: |
+          for i in 1 2 3 4 5; do
+            sleep 3600
+            gh workflow run update.yml --ref main || echo "falha ao disparar (tentará na próxima hora)"
+          done
+      - name: Religar o relógio
+        run: gh workflow run relogio.yml --ref main

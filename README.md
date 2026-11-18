@@ -18,7 +18,7 @@ Painel do mercado brasileiro de petróleo e gás que se atualiza sozinho a cada 
 
 | Bloco | Fonte |
 |---|---|
-| Brent, diesel e gasolina USGC | EIA (planilhas históricas; FRED como reserva) |
+| Brent, WTI, diesel e gasolina USGC | EIA (planilhas históricas; FRED como reserva) |
 | Câmbio | Banco Central, SGS série 1 (PTAX venda) |
 | Produção oficial | ANP, produção por estado e localização |
 | Pré-sal, campos, operadores | ANP, produção por poço/zona (mensal) |
@@ -27,6 +27,8 @@ Painel do mercado brasileiro de petróleo e gás que se atualiza sozinho a cada 
 | PPI oficial (só calibração) | ANP, preços de paridade de importação |
 | Preço Petrobras sem tributos | Petrobras, tabelas de preços às distribuidoras (Cubatão-SP, EXA) |
 | Comércio exterior | Comex Stat (MDIC), NCM 2709 e 2710 |
+| Market share e volume por distribuidora, canais, fornecedores primários | ANP, Painel Dinâmico do Mercado de Combustíveis Líquidos (`mdpg/liquidos.zip`) |
+| Argentina: produção por empresa, vendas por bandeira, gás, poços | Ministério da Economia da Argentina, séries 365, 364 e 366 em infra.datos.gob.ar |
 
 ## Metodologia
 
@@ -35,6 +37,9 @@ Painel do mercado brasileiro de petróleo e gás que se atualiza sozinho a cada 
   últimas 4 semanas da diferença para a PPI da ANP em Santos.
 - Defasagem = preço Petrobras ÷ PPI − 1 (cálculo próprio, não usa a ABICOM).
 - Crack USGC = produto × 42 − Brent; crack Brasil implícito = preço Petrobras em US$/bbl − Brent.
+
+Agendamento: o cron do GitHub pula execuções; `.github/workflows/relogio.yml` fica rodando
+e dispara `update.yml` a cada hora (o cron fica como reserva).
 
 Rodar localmente: `pip install -r requirements.txt && python collector/collect.py`,
 depois `python -m http.server -d site`.

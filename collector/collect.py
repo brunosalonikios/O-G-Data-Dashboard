@@ -150,9 +150,9 @@ def cache_json(path: Path, max_age_h: float | None, builder):
 def fetch_fred():
     """Brent, diesel USGC (ULSD) e gasolina USGC, diários. Fonte primária:
     planilhas históricas do EIA; reserva: as mesmas séries no FRED."""
-    eia = {"RBRTEd": "brent", "EER_EPD2DXL0_PF4_RGC_DPGd": "diesel_usgc",
+    eia = {"RBRTEd": "brent", "RWTCd": "wti", "EER_EPD2DXL0_PF4_RGC_DPGd": "diesel_usgc",
            "EER_EPMRU_PF4_RGC_DPGd": "gasolina_usgc"}
-    fred = {"brent": "DCOILBRENTEU", "diesel_usgc": "DDFUELUSGULF", "gasolina_usgc": "DGASUSGULF"}
+    fred = {"brent": "DCOILBRENTEU", "wti": "DCOILWTICO", "diesel_usgc": "DDFUELUSGULF", "gasolina_usgc": "DGASUSGULF"}
     out = {}
     for code, key in eia.items():
         ser = {}
@@ -593,6 +593,24 @@ def fetch_comex():
     return res
 
 
+# ------------------------------------------- downstream: distribuidoras
+@section("argentina")
+def fetch_argentina():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import argentina
+    return cache_json(CACHE / "argentina.json", 12, lambda: argentina.build(lambda u: get(u, timeout=120).content))
+
+
+@section("anp_distribuidoras")
+def fetch_downstream():
+    """Vendas por distribuidora, canais e fornecedores (ANP liquidos.zip, ~22 MB).
+    O arquivo muda no máximo uma vez por mês; baixa de novo a cada 12h."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import downstream
+    return cache_json(CACHE / "downstream.json", 12,
+                      lambda: downstream.build(get(downstream.URL, timeout=600).content))
+
+
 # ------------------------------------------------------------ analytics
 def ffill_series(ser: dict[str, float], dates: list[str]) -> dict[str, float]:
     out, last = {}, None
@@ -760,6 +778,8 @@ def main():
     anp_ppi = fetch_anp_ppi()
     pb = fetch_petrobras()
     comex = fetch_comex()
+    dstream = fetch_downstream()
+    arg = fetch_argentina()
 
     D = dict(prev)  # mantém blocos anteriores se algo falhar
     D["gerado_em"] = prev.get("gerado_em")
@@ -770,7 +790,8 @@ def main():
         fxm = monthly_mean(ptax)
         brm = monthly_mean(fred["brent"])
         D["mercado"] = {
-            "brent_diario": [[d, v] for d, v in sorted(fred["brent"].items()) if d >= "2024-01-01"],
+            "brent_diario": [[d, v] for d, v in sorted(fred["brent"].items())],
+            "wti_diario": [[d, v] for d, v in sorted(fred.get("wti", {}).items())],
             "ptax_diario": [[d, v] for d, v in sorted(ptax.items()) if d >= "2024-01-01"],
             "mensal": [{"mes": m, "brent": r2(brm.get(m)), "ptax": r2(fxm.get(m), 4),
                         "brent_brl_l": r2(brm[m] * fxm[m] / L_PER_BBL, 4) if m in fxm else None}
@@ -848,6 +869,10 @@ def main():
         D["precos_bomba"] = pump
     if comex:
         D["comercio"] = comex
+    if dstream:
+        D["downstream"] = dstream
+    if arg:
+        D["argentina"] = arg
 
     # ---- paridade, defasagem e cracks
     if fred and ptax and anp_ppi:
