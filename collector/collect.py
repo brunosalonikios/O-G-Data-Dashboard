@@ -830,7 +830,12 @@ def fetch_pocos_br(opmap):
             m = re.search(r"(\d{2})[-_]?(\d{4})\.csv$", u, re.I)
             if m:
                 by_month[ym(int(m.group(2)), int(m.group(1)))] = u
-        oper = lambda f: operator_group(OPERADOR_EXTRA.get(f) or (opmap or {}).get(f, "Não mapeado"))
+        def oper(f):
+            mp = opmap or {}
+            for k in (f, f.replace("_", " "), f.split("_")[0], f.split(" ")[0]):
+                if OPERADOR_EXTRA.get(k) or mp.get(k):
+                    return operator_group(OPERADOR_EXTRA.get(k) or mp[k])
+            return "Não mapeado"
         return pocos_br.build(lambda u: get(u, timeout=180), by_month, CACHE / "pocos_br", oper)
     return cache_json(CACHE / "pocos_br.json", 12, build)
 

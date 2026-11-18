@@ -79,6 +79,10 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 .margbig div{font-size:12px;color:var(--text-secondary)}
 .margbig b{display:block;font-size:20px;color:var(--text-primary);font-variant-numeric:tabular-nums}
 .tblwrap{overflow-x:auto;max-height:380px}
+.tblwrap.tall{max-height:520px}
+.tbl td.l,.tbl th.l{text-align:left}
+.tag{display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:6px;background:var(--grid);color:var(--text-secondary);margin-left:6px}
+.spark{vertical-align:middle}
 .tbl{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
 .tbl th{font-weight:500;color:var(--text-secondary);text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface-1)}
 .tbl td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--grid)}
@@ -138,6 +142,35 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
         <div class="seg" data-for="com"><button aria-pressed="true" data-v="exp">Exportação de petróleo</button><button aria-pressed="false" data-v="imp">Importação de derivados</button></div></div>
       <div class="chart"><canvas id="c-com"></canvas></div>
       <div class="src">Fonte: Comex Stat (MDIC), NCM 2709 (petróleo bruto) e 2710 (derivados). Barris estimados pelo peso com densidade de 0,87.</div>
+    </div>
+    <div class="sect">Acompanhamento por poço</div>
+    <div class="card wide">
+      <h2>Poços que pararam, voltaram e entraram em produção</h2><div class="desc" id="d-pmov">Número de poços por mês.</div>
+      <div class="margbig" id="pkpis"></div>
+      <div class="chart"><canvas id="c-pmov"></canvas></div>
+      <div class="src">Fonte: ANP, produção por poço e zona (mensal). "Parou": produziu no mês anterior e não produziu no mês. "Voltou": não produziu no mês anterior, mas produziu antes. "Novo": sem nenhuma produção nos meses anteriores da janela (de 12 a 36 meses). O salto em jun/25 (cerca de 600 poços em terra a mais) vem do próprio arquivo da ANP.</div>
+    </div>
+    <div class="card wide">
+      <h2>Poços parados</h2><div class="desc" id="d-ppar">Poços sem produção no último mês que chegaram a 300 boe/d nos últimos 3 anos.</div>
+      <div class="tblwrap tall"><table class="tbl" id="t-ppar"></table></div>
+      <div class="src">Última produção: média diária do último mês com produção. Pico: maior média mensal em óleo equivalente (1 mil m³ de gás = 1 m³ de óleo). Parada pode ser manutenção, intervenção ou fechamento definitivo; a ANP não informa o motivo.</div>
+    </div>
+    <div class="card">
+      <h2>Poços novos no mês</h2><div class="desc" id="d-pnov">Primeira produção.</div>
+      <div class="tblwrap"><table class="tbl" id="t-pnov"></table></div>
+    </div>
+    <div class="card">
+      <h2>Voltaram a produzir</h2><div class="desc" id="d-pvol">Sem produção no mês anterior.</div>
+      <div class="tblwrap"><table class="tbl" id="t-pvol"></table></div>
+    </div>
+    <div class="card wide">
+      <h2>Maiores poços do país</h2><div class="desc" id="d-pmai">Petróleo, bbl/d.</div>
+      <div class="tblwrap tall"><table class="tbl" id="t-pmai"></table></div>
+    </div>
+    <div class="card wide">
+      <div class="row"><div><h2>Maiores variações no mês</h2><div class="desc" id="d-pvar">Petróleo, bbl/d, poços que produziram nos dois meses.</div></div>
+        <div class="seg" data-for="pvar"><button aria-pressed="true" data-v="quedas">Quedas</button><button aria-pressed="false" data-v="altas">Altas</button></div></div>
+      <div class="tblwrap"><table class="tbl" id="t-pvar"></table></div>
     </div>
   </section>
   </div>
@@ -280,6 +313,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <li><b>Defasagem</b> = preço Petrobras sem tributos ÷ PPI − 1. Não usa a defasagem da ABICOM. Quando há subvenção federal ao diesel, mostramos o preço de tabela e o preço líquido do desconto.</li>
       <li><b>Pré-sal</b>: participação pela classificação da ANP por poço (arquivos até 2025) e, nos arquivos mais novos sem essa coluna, pela zona produtora (Barra Velha, Itapema, Macabu, Coqueiros, Piçarras).</li>
       <li><b>Operador</b>: mapa campo → operador do último arquivo da ANP com essa coluna (dez/2023), agrupando empresas do mesmo grupo; campos que entraram em produção depois aparecem como "Não mapeado", exceto Bacalhau (Equinor).</li>
+      <li><b>Poço a poço</b>: arquivo mensal da ANP de produção por poço e zona, somando as zonas de cada poço; operador pelo mapa campo → operador. Um poço "parado" é o que não aparece com produção no último mês publicado (a ANP publica com cerca de dois meses de defasagem).</li>
       <li><b>Distribuidoras</b>: vendas por agente do painel de combustíveis líquidos da ANP, com empresas do mesmo grupo somadas; o último mês é descartado se vier claramente incompleto.</li>
     <li><b>Argentina</b>: o portal da Secretaria de Energia não responde fora da Argentina. A parte de upstream usa a produção mensal por poço da Secretaria redistribuída pelo projeto PetroDB (atualizada quando sai o arquivo de cada ano; hoje vai até dez/2025); Vaca Muerta = formação produtora Vaca Muerta; operador = operador do poço em cada mês. Gás, poços terminados e vendas por bandeira vêm das séries mensais do Ministério da Economia (datos.gob.ar), que são mais recentes mas cobrem só as maiores empresas. Reservas e preços na bomba ainda não têm fonte acessível.</li>
     <li><b>Premissas</b> (perguntas em aberto no escopo): uso pessoal; rótulos em português.</li>
@@ -299,7 +333,7 @@ const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); }
 const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
 const S = i => css('--s'+i);
 let D = null, META = null; const charts = {};
-const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', tab:'upstream'};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', pvar:'quedas', tab:'upstream'};
 const PNOME = {diesel:'diesel B', gasolina:'gasolina C', etanol:'etanol hidratado'};
 
 function base(opts={}){
@@ -321,6 +355,41 @@ function base(opts={}){
 }
 function draw(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart(document.getElementById(id), cfg); }
 const line = (label, data, color, extra={}) => ({type:'line', label, data, borderColor:color, backgroundColor:color, ...extra});
+
+
+// ---------- poço a poço (Brasil)
+function spark(v){ const w=90,h=20,mx=Math.max(1,...v); const pts=v.map((x,i)=>`${(i*(w/(v.length-1))).toFixed(1)},${(h-1-(x/mx)*(h-2)).toFixed(1)}`).join(' ');
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="${S(1)}" stroke-width="1.5" points="${pts}"/></svg>`; }
+const pocoCel = r => `<td class="l">${r.poco}</td><td class="l">${r.campo}</td><td class="l">${r.operador}</td>`;
+function cPocosMov(){
+  const P=D.pocos_br; if(!P) return;
+  const c=P.contagem, u=c[c.length-1];
+  $('#d-pmov').textContent=`Número de poços por mês. Último dado: ${mlab(P.mes)}.`;
+  $('#pkpis').innerHTML=`<div>Produzindo em ${mlab(P.mes)}<b>${fmt(u.produzindo)}</b></div><div>No mar<b>${fmt(u.mar)}</b></div><div>Pararam<b>${fmt(u.pararam)}</b></div><div>Voltaram<b>${fmt(u.voltaram)}</b></div><div>Novos<b>${fmt(u.novos)}</b></div>`;
+  const ds=[{type:'bar',label:'Pararam',data:c.map(r=>-r.pararam),backgroundColor:css('--bad')},{type:'bar',label:'Voltaram',data:c.map(r=>r.voltaram),backgroundColor:S(2)},{type:'bar',label:'Novos',data:c.map(r=>r.novos),backgroundColor:S(1)}];
+  const o=base({stacked:true, zero:true, ytick:v=>fmt(Math.abs(v)), tip:c=>` ${c.dataset.label}: ${fmt(Math.abs(c.parsed.y))}`});
+  draw('c-pmov',{type:'bar', data:{labels:c.map(r=>mlab(r.mes)), datasets:ds}, options:o});
+}
+function tPocos(){
+  const P=D.pocos_br; if(!P) return;
+  const sm=P.serie_meses, faixa=`${mlab(sm[0])} a ${mlab(sm[sm.length-1])}`;
+  $('#d-ppar').textContent=`Poços sem produção em ${mlab(P.mes)} que chegaram a 300 boe/d nos últimos 3 anos. Os que pararam neste mês vêm primeiro.`;
+  $('#t-ppar').innerHTML=`<thead><tr><th class="l">Poço</th><th class="l">Campo</th><th class="l">Operador</th><th>Parado desde</th><th>Última prod. óleo (bbl/d)</th><th>Gás (mil m³/d)</th><th>Pico (boe/d)</th><th>Óleo, ${faixa}</th></tr></thead><tbody>`+
+    P.parados.map(r=>`<tr>${pocoCel(r)}<td>${mlab(r.parado_desde)}${r.novo?'<span class="tag">novo</span>':''}</td><td>${fmt(r.ultima_oil)}</td><td>${fmt(r.ultima_gas,1)}</td><td>${fmt(r.pico_boe)}</td><td>${spark(r.serie)}</td></tr>`).join('')+'</tbody>';
+  $('#d-pnov').textContent=`Primeira produção em ${mlab(P.mes)} (sem produção nos 3 anos anteriores).`;
+  $('#t-pnov').innerHTML=`<thead><tr><th class="l">Poço</th><th class="l">Campo</th><th class="l">Operador</th><th>Óleo (bbl/d)</th><th>Gás (mil m³/d)</th></tr></thead><tbody>`+
+    (P.novos.length?P.novos.map(r=>`<tr>${pocoCel(r)}<td>${fmt(r.oil)}</td><td>${fmt(r.gas,1)}</td></tr>`).join(''):'<tr><td colspan="5" class="l">Nenhum.</td></tr>')+'</tbody>';
+  $('#d-pvol').textContent=`Produziram em ${mlab(P.mes)} depois de ao menos um mês parados.`;
+  $('#t-pvol').innerHTML=`<thead><tr><th class="l">Poço</th><th class="l">Campo</th><th class="l">Operador</th><th>Parado desde</th><th>Óleo (bbl/d)</th><th>Gás (mil m³/d)</th></tr></thead><tbody>`+
+    P.voltaram.map(r=>`<tr>${pocoCel(r)}<td>${r.parado_desde?mlab(r.parado_desde):'–'}</td><td>${fmt(r.oil)}</td><td>${fmt(r.gas,1)}</td></tr>`).join('')+'</tbody>';
+  $('#d-pmai').textContent=`Petróleo em ${mlab(P.mes)}, bbl/d, e a evolução de ${faixa}.`;
+  $('#t-pmai').innerHTML=`<thead><tr><th class="l">Poço</th><th class="l">Campo</th><th class="l">Operador</th><th>${mlab(P.mes)}</th><th>${mlab(P.mes_anterior)}</th><th>Var.</th><th>Gás (mil m³/d)</th><th>Óleo, ${faixa}</th></tr></thead><tbody>`+
+    P.maiores.map(r=>{ const v=r.oil_ant?r.oil/r.oil_ant-1:null; return `<tr>${pocoCel(r)}<td>${fmt(r.oil)}</td><td>${fmt(r.oil_ant)}</td><td>${v==null?'–':`<span class="${v>=0?'up':'down'}">${pctf(v)}</span>`}</td><td>${fmt(r.gas,0)}</td><td>${spark(r.serie)}</td></tr>`; }).join('')+'</tbody>';
+  const L=P[state.pvar]||[];
+  $('#d-pvar').textContent=`Petróleo, bbl/d, ${mlab(P.mes_anterior)} para ${mlab(P.mes)}, poços que produziram nos dois meses.`;
+  $('#t-pvar').innerHTML=`<thead><tr><th class="l">Poço</th><th class="l">Campo</th><th class="l">Operador</th><th>${mlab(P.mes_anterior)}</th><th>${mlab(P.mes)}</th><th>Diferença</th></tr></thead><tbody>`+
+    L.map(r=>`<tr>${pocoCel(r)}<td>${fmt(r.oil_ant)}</td><td>${fmt(r.oil)}</td><td><span class="${r.delta>=0?'up':'down'}">${r.delta>0?'+':''}${fmt(r.delta)}</span></td></tr>`).join('')+'</tbody>';
+}
 
 // ---------- KPIs
 function tiles(sel){ const el=$(sel); el.innerHTML=''; return (lab,val,unit,delta)=>el.insertAdjacentHTML('beforeend',`<div class="kpi"><div class="lab">${lab}</div><div class="val">${val}<small>${unit||''}</small></div><div class="delta">${delta||''}</div></div>`); }
@@ -652,7 +721,7 @@ function stamp(){
   const f=x=>x.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
   const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok).map(([k])=>k);
   el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte com falha nesta rodada (mantido o último dado): ${bad.join(', ')}</span>`:''}`;
-  const names={anp_distribuidoras:'ANP vendas por distribuidora',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  const names={anp_distribuidoras:'ANP vendas por distribuidora',anp_pocos:'ANP poço a poço',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
   $('#fontes').innerHTML='<b>Situação das fontes na última rodada:</b> '+Object.entries(META.fontes||{}).map(([k,v])=>`${names[k]||k} ${v.ok?'✓':'✗'}`).join(' · ');
 }
 
@@ -663,7 +732,7 @@ function metodo(){
   if(M.diesel?.janela_semanas) $('#calw').textContent=M.diesel.janela_semanas;
 }
 const TABS = {
-  upstream:[kpisUp, cProd, cOp, cCampos, cCom],
+  upstream:[kpisUp, cProd, cOp, cCampos, cCom, cPocosMov, tPocos],
   downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cEbitda, cVendas, cShare, tRank, cBig3, cCanais, cForn],
   argentina:[kpisAr, cArVM, cArVMOp, cArRank, cArProdV, cArNovos, cArPoc, cArGas, cArShare, cArVol],
 };

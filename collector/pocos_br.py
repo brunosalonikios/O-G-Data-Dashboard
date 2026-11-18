@@ -102,7 +102,7 @@ def build(get, by_month: dict, cache_dir: Path, operador) -> dict:
 
     def linha(k, extra):
         c, b, amb = meta[k]
-        return {"poco": k, "campo": c.title(), "bacia": b, "amb": "Mar" if amb == "MAR" else "Terra",
+        return {"poco": k, "campo": c.replace("_", " ").title(), "bacia": b, "amb": "Mar" if amb == "MAR" else "Terra",
                 "operador": op[k], **extra}
 
     serie_m = meses[-13:]
@@ -155,7 +155,8 @@ def build(get, by_month: dict, cache_dir: Path, operador) -> dict:
         por_op[r["operador"]]["novos"] += 1
     ops = sorted(({"operador": k, **v} for k, v in por_op.items()), key=lambda r: -r["produzindo"])
     return {
-        "mes": ult, "mes_anterior": ant, "serie_meses": serie_m, "contagem": contagem,
+        "mes": ult, "mes_anterior": ant, "serie_meses": serie_m,
+        "contagem": contagem[12:],   # nos primeiros meses da janela "novo" ainda não tem histórico suficiente
         "parados": parados[:40], "voltaram": voltaram[:20], "novos": novos[:20],
         "maiores": maiores, "quedas": quedas, "altas": altas, "por_operador": ops[:15],
         "dias_mes": calendar.monthrange(int(ult[:4]), int(ult[5:]))[1],
