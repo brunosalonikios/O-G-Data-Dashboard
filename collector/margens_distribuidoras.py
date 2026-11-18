@@ -170,7 +170,8 @@ def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
     for ano in range(2019, y + 1):
         try:
             z = zipfile.ZipFile(io.BytesIO(get(CVM_IPE.format(ano=ano)).content))
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
+            print(f"Ipiranga: IPE {ano} falhou: {e}")
             continue
         for name in z.namelist():
             for r in csv.DictReader(io.StringIO(z.read(name).decode("latin1")), delimiter=";"):
@@ -187,7 +188,8 @@ def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
         n += 1
         try:
             res = _ipiranga_release(get(rel[d]["Link_Download"]).content)
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
+            print(f"Ipiranga: release {d} falhou: {str(e)[:120]}")
             continue
         feitos.add(d)
         if res:
@@ -195,6 +197,7 @@ def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
             vals[cur] = res[cur]                        # o trimestre do release sempre prevalece
             for q, v in list(res.items())[1:]:
                 vals.setdefault(q, v)                   # comparativos só preenchem buracos
+    print(f"Ipiranga: {len(rel)} releases listados, {n} baixados, {len(vals)} trimestres")
     cache["valores"], cache["releases"] = vals, sorted(feitos)
     serie = [{"tri": q, "rotulo": f"{q[-1]}T{q[2:4]}", "valor": vals[q]} for q in sorted(vals)]
     return {"arquivo": "releases de resultados da Ultrapar (CVM)", "data_arquivo": max(feitos) if feitos else "", "serie": serie}

@@ -641,7 +641,13 @@ def fetch_ri_distribuidoras():
         out = md.build(lambda u: get(u, timeout=180), post, ip)
         ip_path.write_text(json.dumps(ip, ensure_ascii=False, indent=1))
         return out
-    return cache_json(CACHE / "ri_distribuidoras.json", 12, build)
+    cp = CACHE / "ri_distribuidoras.json"
+    try:   # sem Ipiranga no cache: tenta de novo nesta rodada em vez de esperar 12 h
+        if not json.loads(cp.read_text())["data"].get("Ipiranga", {}).get("serie"):
+            cp.unlink()
+    except Exception:  # noqa: BLE001
+        pass
+    return cache_json(cp, 12, build)
 
 
 @section("anp_distribuidoras")
