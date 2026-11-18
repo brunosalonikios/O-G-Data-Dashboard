@@ -1,8 +1,11 @@
-"""EBITDA ajustado por m³ das distribuidoras, trimestral, das planilhas de RI.
+"""EBITDA ajustado recorrente por m³ das distribuidoras, trimestral, a partir do material de RI.
 
-Vibra: "Planilhas por Segmento" (aba de reconciliação do EBITDA, linha "MARGEM EBITDA AJUSTADA (R$/m³)"),
-listadas pela API pública do provedor de RI (MZ). Lemos sempre o arquivo mais recente, que traz a série
-histórica inteira.
+Vibra (Rede de Postos): "Planilhas por Segmento" listadas pela API pública do provedor de RI (MZ).
+  EBITDA ajustado do segmento menos recuperações tributárias e vendas de imóveis (os itens que a Vibra
+  trata como não recorrentes), dividido pelo volume do segmento. Bate com o release (3T26 = 412).
+Raízen (Distribuição Brasil): o EBITDA ajustado da Raízen já exclui os itens não recorrentes.
+Ipiranga: linha "Margem EBITDA Ajustado recorrente" dos releases da Ultrapar; releases antigos, sem
+  essa linha, usam EBITDA ajustado ÷ volume.
 """
 from __future__ import annotations
 
@@ -12,10 +15,7 @@ import json
 import re
 
 MZ_META = "https://apicatalog.mziq.com/filemanager/company/{cid}/filter/categories/year/meta"
-EMPRESAS = {
-    "Vibra": {"cid": "d243bdaa-0468-4f64-8c09-ba0bcee9789b", "cat": "central-planilhas-segmento",
-              "aba": r"reconcilia.*ebitda", "linha": r"margem ebitda ajustad.*r\$/m"},
-}
+VIBRA_CID, VIBRA_CAT = "d243bdaa-0468-4f64-8c09-ba0bcee9789b", "central-planilhas-segmento"
 TRI = re.compile(r"^([1-4])T(\d{2})$")
 
 
@@ -55,6 +55,49 @@ def _serie(content: bytes, padrao: str, aba: str) -> list[dict]:
     raise RuntimeError("linha de EBITDA/m³ não encontrada")
 
 
+def _bloco(ws, secao: str, linhas: dict) -> dict:
+    """Linhas de uma seção (ex.: "REDE DE POSTOS") de uma aba trimestral: {chave: {"3T26": valor}}."""
+    header, sec, out = None, None, {}
+    for r in ws.iter_rows(values_only=True):
+        if header is None:
+            if sum(1 for c in r if isinstance(c, str) and TRI.match(c.strip())) >= 4:
+                header = r
+            continue
+        lab = next((c for c in r[:4] if isinstance(c, str)), None)
+        if lab and not any(isinstance(c, (int, float)) for c in r) and not any(isinstance(c, str) and c.strip() == "-" for c in r):
+            if not lab.startswith("("):
+                sec = lab
+            continue
+        if not (lab and sec and re.search(secao, sec, re.I)):
+            continue
+        for k, rx in linhas.items():
+            if k not in out and re.search(rx, lab, re.I):
+                out[k] = {h.strip(): (v if isinstance(v, (int, float)) else 0.0)
+                          for h, v in zip(header, r) if isinstance(h, str) and TRI.match(h.strip())}
+    return out
+
+
+def _vibra(get, post) -> dict:
+    import openpyxl
+    meta = _latest(post, VIBRA_CID, VIBRA_CAT)
+    wb = openpyxl.load_workbook(io.BytesIO(get(meta["file_url"]).content), read_only=True, data_only=True)
+    aba = lambda rx: next(w for w in wb.worksheets if re.search(rx, w.title, re.I))
+    vol = _bloco(aba(r"volume"), r"^rede de postos", {"v": r"^\(mil m"})["v"]
+    eb = _bloco(aba(r"resultado por segmento"), r"^rede de postos", {"e": r"^ebitda ajustado"})["e"]
+    aj = _bloco(aba(r"reconcilia.*despesas"), r"^rede de postos",
+                {"extra": r"recupera..o tribut.ria extra", "outras": r"outras recupera", "imoveis": r"venda de im"})
+    if len(aj) < 2:
+        raise RuntimeError("Vibra: ajustes não recorrentes não encontrados")
+    serie = []
+    for rot, v in vol.items():
+        if rot in eb and v:
+            m = TRI.match(rot)
+            rec = eb[rot] + sum(a.get(rot, 0) for a in aj.values())
+            serie.append({"tri": f"20{m.group(2)}-T{m.group(1)}", "rotulo": rot, "valor": round(rec * 1000 / v, 1)})
+    serie.sort(key=lambda r: r["tri"])
+    return {"arquivo": meta["file_title"] + " (Rede de Postos)", "data_arquivo": meta["file_date"][:10], "serie": serie}
+
+
 RAIZEN_SITE = "e24e1732-fe1c-4eaf-9a28-ed09ccc472b1"
 RAIZEN_API = "https://api.solutions-ir.com/v2/files/{site}/period"
 
@@ -91,8 +134,8 @@ def _n(tok: str) -> float:
 
 
 def _ipiranga_release(pdf: bytes):
-    """Tabela da Ipiranga no release: volume (mil m³) e EBITDA ajustado (R$ mi) para o trimestre,
-    o mesmo trimestre do ano anterior e o trimestre anterior (as três primeiras colunas)."""
+    """Tabela da Ipiranga no release, três primeiras colunas (trimestre, mesmo trimestre do ano anterior,
+    trimestre anterior): margem EBITDA ajustado recorrente; sem ela, EBITDA ajustado ÷ volume."""
     import pdfplumber
     with pdfplumber.open(io.BytesIO(pdf)) as p:
         for pg in p.pages[:15]:
@@ -106,8 +149,13 @@ def _ipiranga_release(pdf: bytes):
                     eb = re.findall(NUM, line.split(")", 1)[-1] if "milh" in line else line[line.index(" ", 7):])[:3]
                     break
             per = re.search(r"\b([1-4])T(\d{2})\s+([1-4])T(\d{2})\s+([1-4])T(\d{2})", t)
-            if vol and eb and per and len(eb) == 3:
-                tri = [f"20{per.group(i + 1)}-T{per.group(i)}" for i in (1, 3, 5)]
+            if not per:
+                continue
+            tri = [f"20{per.group(i + 1)}-T{per.group(i)}" for i in (1, 3, 5)]
+            rec = re.search(rf"Margem EBITDA Ajustado recorrente \(R\$/m.\)\s+({NUM})\s+({NUM})\s+({NUM})", t)
+            if rec:
+                return {q: float(_n(x)) for q, x in zip(tri, rec.groups())}
+            if vol and eb and len(eb) == 3:
                 return {q: round(_n(e) * 1000 / _n(v), 1) for q, e, v in zip(tri, eb, vol.groups()) if _n(v) > 0}
     return None
 
@@ -163,8 +211,5 @@ def build(get, post, cache_ipiranga: dict | None = None) -> dict:
         out["Raízen"] = _raizen(get)
     except Exception as e:  # noqa: BLE001  (uma empresa falhar não derruba as outras)
         print("Raízen EBITDA/m³ falhou:", e)
-    for nome, cfg in EMPRESAS.items():
-        meta = _latest(post, cfg["cid"], cfg["cat"])
-        serie = _serie(get(meta["file_url"]).content, cfg["linha"], cfg["aba"])
-        out[nome] = {"arquivo": meta["file_title"], "data_arquivo": meta["file_date"][:10], "serie": serie}
+    out["Vibra"] = _vibra(get, post)
     return out

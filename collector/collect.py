@@ -634,7 +634,7 @@ def fetch_ri_distribuidoras():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import margens_distribuidoras as md
     post = lambda u, b: requests.post(u, json=b, timeout=60)
-    ip_path = CACHE / "ipiranga_releases.json"
+    ip_path = CACHE / "ipiranga_recorrente.json"
 
     def build():
         ip = json.loads(ip_path.read_text()) if ip_path.exists() else {}
