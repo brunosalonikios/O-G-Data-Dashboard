@@ -629,6 +629,14 @@ def fetch_argentina_pozos():
     return data
 
 
+@section("ri_distribuidoras")
+def fetch_ri_distribuidoras():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import margens_distribuidoras as md
+    post = lambda u, b: requests.post(u, json=b, timeout=60)
+    return cache_json(CACHE / "ri_distribuidoras.json", 12, lambda: md.build(lambda u: get(u, timeout=120), post))
+
+
 @section("anp_distribuidoras")
 def fetch_downstream():
     """Vendas por distribuidora, canais e fornecedores (ANP liquidos.zip, ~22 MB).
@@ -808,6 +816,7 @@ def main():
     comex = fetch_comex()
     dstream = fetch_downstream()
     arg = fetch_argentina()
+    ri = fetch_ri_distribuidoras()
     argp = fetch_argentina_pozos()
 
     D = dict(prev)  # mantém blocos anteriores se algo falhar
@@ -902,6 +911,8 @@ def main():
         D["downstream"] = dstream
     if arg:
         D["argentina"] = arg
+    if ri:
+        D["ebitda_m3"] = ri
     if argp:
         D.setdefault("argentina", {})["pozos"] = argp
     # ---- composição do preço na bomba: série acumulada a cada semana nova

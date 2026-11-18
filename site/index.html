@@ -173,7 +173,12 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <div class="chart short" id="w-margh"><canvas id="c-margh"></canvas></div>
       <div class="src">Fonte: Petrobras, composição de preços ao consumidor (média semanal ANP). Distribuição e revenda é o resíduo: preço na bomba menos parcela Petrobras, biocombustível e tributos; no diesel inclui também o custo extra do produto importado acima do preço Petrobras. A série histórica é gravada a cada semana a partir de nov/26.</div>
     </div>
-    <div class="card wide">
+    <div class="card">
+      <h2>EBITDA ajustado por m³ das distribuidoras</h2><div class="desc" id="d-ebitda">R$ por m³ vendido, trimestral.</div>
+      <div class="chart"><canvas id="c-ebitda"></canvas></div>
+      <div class="src" id="s-ebitda">Fonte: planilhas de resultados das companhias (RI). Lido sempre do arquivo trimestral mais recente.</div>
+    </div>
+    <div class="card">
       <h2>Demanda de combustíveis</h2><div class="desc">Vendas das distribuidoras, mil m³ por mês.</div>
       <div class="seg" data-for="vendas"><button aria-pressed="true" data-v="mm12">Média móvel 12m</button><button aria-pressed="false" data-v="raw">Mensal</button></div>
       <div class="chart"><canvas id="c-vendas"></canvas></div>
@@ -495,6 +500,15 @@ function cMarg(){
   draw('c-margh',{type:'line', data:{labels:H.map(r=>dlab(r.fim)), datasets:[line('Distribuição e revenda', H.map(r=>r.distribuicao*1000), S(4)), line('Parcela Petrobras', H.map(r=>r.petrobras*1000), S(1))]}, options:base({zero:false, ytick:v=>'R$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.y,0)}/m³`})});
 }
 
+function cEbitda(){
+  const E=D.ebitda_m3; if(!E) return;
+  const tris=[...new Set(Object.values(E).flatMap(e=>e.serie.map(r=>r.tri)))].sort().filter(t=>t>='2019');
+  const lab=t=>t.slice(6)+'T'+t.slice(2,4);
+  const cor={'Vibra':1,'Ipiranga':2,'Raízen':3};
+  const ds=Object.entries(E).map(([n,e])=>{ const m=Object.fromEntries(e.serie.map(r=>[r.tri,r.valor])); return line(n, tris.map(t=>m[t]??null), S(cor[n]||4), {pointRadius:2, spanGaps:true}); });
+  const v=E.Vibra; $('#s-ebitda').textContent=`Fonte: planilhas de resultados das companhias (RI)${v?`; Vibra: "${v.arquivo}"`:''}. Lido sempre do arquivo trimestral mais recente. Como reportado pela companhia: picos (ex.: 4T23, 3T24) refletem créditos tributários e, em 2026, subvenções ao diesel.`;
+  draw('c-ebitda',{type:'line', data:{labels:tris.map(lab), datasets:ds}, options:base({ytick:v=>'R$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.y,0)}/m³`})});
+}
 // ---------- downstream: distribuidoras
 const DCOR = {'Vibra':1,'Ipiranga':2,'Raízen':3,'Atem':4,'ALE':5,'Sabbá':6,'Demais':null};
 function cShare(){
@@ -638,7 +652,7 @@ function stamp(){
   const f=x=>x.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
   const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok).map(([k])=>k);
   el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte com falha nesta rodada (mantido o último dado): ${bad.join(', ')}</span>`:''}`;
-  const names={anp_distribuidoras:'ANP vendas por distribuidora',argentina_pozos:'Argentina poço a poço (PetroDB)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  const names={anp_distribuidoras:'ANP vendas por distribuidora',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
   $('#fontes').innerHTML='<b>Situação das fontes na última rodada:</b> '+Object.entries(META.fontes||{}).map(([k,v])=>`${names[k]||k} ${v.ok?'✓':'✗'}`).join(' · ');
 }
 
@@ -650,7 +664,7 @@ function metodo(){
 }
 const TABS = {
   upstream:[kpisUp, cProd, cOp, cCampos, cCom],
-  downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cVendas, cShare, tRank, cBig3, cCanais, cForn],
+  downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cEbitda, cVendas, cShare, tRank, cBig3, cCanais, cForn],
   argentina:[kpisAr, cArVM, cArVMOp, cArRank, cArProdV, cArNovos, cArPoc, cArGas, cArShare, cArVol],
 };
 function run(f){ try{ f(); }catch(e){ console.error(f.name, e); } }
