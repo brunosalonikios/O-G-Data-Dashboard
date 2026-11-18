@@ -55,8 +55,114 @@ def _serie(content: bytes, padrao: str, aba: str) -> list[dict]:
     raise RuntimeError("linha de EBITDA/m³ não encontrada")
 
 
-def build(get, post) -> dict:
+RAIZEN_SITE = "e24e1732-fe1c-4eaf-9a28-ed09ccc472b1"
+RAIZEN_API = "https://api.solutions-ir.com/v2/files/{site}/period"
+
+
+def _raizen(get) -> dict:
+    """Raízen: "Planilha por Segmento" de cada ano-safra (abr-mar). Cada arquivo traz poucos
+    trimestres, então juntamos todos os arquivos listados. 1T de 26/27 = abr-jun/2026."""
+    y = dt.date.today().year
+    url = RAIZEN_API.format(site=RAIZEN_SITE) + f"?language=pt&categories=planilhas_por_segmento&startDate=2018-01-01&endDate={y + 2}-12-31"
+    files = json.loads(get(url).content)["categories"].get("planilhas_por_segmento", [])
+    if not files:
+        raise RuntimeError("Raízen: nenhuma planilha listada")
+    files.sort(key=lambda f: f["refDate"])
+    vals = {}
+    for f in files:                       # mais novo por último: revisões prevalecem
+        for r in _serie(get(f["url"]).content, r"margem ebitda ajustad.*r\$/m", r"distribui.*br|combust.*br"):
+            q, yy = int(r["rotulo"][0]), 2000 + int(r["rotulo"][2:])
+            cal_y, cal_q = (yy - 1, q + 1) if q <= 3 else (yy, 1)
+            vals[f"{cal_y}-T{cal_q}"] = {"tri": f"{cal_y}-T{cal_q}", "rotulo": f"{q}T{r['rotulo'][2:]} (safra)", "valor": r["valor"]}
+    return {"arquivo": "Planilha por Segmento " + files[-1]["refDate"][:4], "data_arquivo": files[-1].get("createdAt", "")[:10],
+            "serie": [vals[k] for k in sorted(vals)]}
+
+
+# ---------------- Ipiranga: releases de resultados da Ultrapar entregues à CVM (IPE)
+CVM_IPE = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/IPE/DADOS/ipe_cia_aberta_{ano}.zip"
+ULTRAPAR_CVM = "18465"
+NUM = r"\(?-?[\d.]+\)?"
+
+
+def _n(tok: str) -> float:
+    neg = tok.startswith("(")
+    v = float(tok.strip("()").replace(".", ""))
+    return -v if neg else v
+
+
+def _ipiranga_release(pdf: bytes):
+    """Tabela da Ipiranga no release: volume (mil m³) e EBITDA ajustado (R$ mi) para o trimestre,
+    o mesmo trimestre do ano anterior e o trimestre anterior (as três primeiras colunas)."""
+    import pdfplumber
+    with pdfplumber.open(io.BytesIO(pdf)) as p:
+        for pg in p.pages[:15]:
+            t = pg.extract_text() or ""
+            if not re.search(r"ipiranga", t, re.I) or "Volume total (mil m" not in t:
+                continue
+            vol = re.search(rf"Volume total \(mil m.\)\s+({NUM})\s+({NUM})\s+({NUM})", t)
+            eb = None
+            for line in t.split("\n"):
+                if re.match(r"EBITDA( Ajustado)?( \(R\$ milh.es\))?\s+\(?-?[\d.]+", line) and not re.search(r"recorrente|IFRS|P.s-ajuste", line, re.I):
+                    eb = re.findall(NUM, line.split(")", 1)[-1] if "milh" in line else line[line.index(" ", 7):])[:3]
+                    break
+            per = re.search(r"\b([1-4])T(\d{2})\s+([1-4])T(\d{2})\s+([1-4])T(\d{2})", t)
+            if vol and eb and per and len(eb) == 3:
+                tri = [f"20{per.group(i + 1)}-T{per.group(i)}" for i in (1, 3, 5)]
+                return {q: round(_n(e) * 1000 / _n(v), 1) for q, e, v in zip(tri, eb, vol.groups()) if _n(v) > 0}
+    return None
+
+
+def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
+    import os
+    max_downloads = int(os.environ.get("IPIRANGA_MAX_DOWNLOADS", "40")) if max_downloads is None else max_downloads
+    import csv
+    import zipfile
+    y = dt.date.today().year
+    rel = {}
+    for ano in range(2019, y + 1):
+        try:
+            z = zipfile.ZipFile(io.BytesIO(get(CVM_IPE.format(ano=ano)).content))
+        except Exception:  # noqa: BLE001
+            continue
+        for name in z.namelist():
+            for r in csv.DictReader(io.StringIO(z.read(name).decode("latin1")), delimiter=";"):
+                if r["Codigo_CVM"] == ULTRAPAR_CVM and r["Tipo"] == "Press-release":
+                    d = r["Data_Referencia"]
+                    if d not in rel or int(r["Versao"]) > int(rel[d]["Versao"]):
+                        rel[d] = r
+    vals = dict(cache.get("valores", {}))
+    feitos = set(cache.get("releases", []))
+    n = 0
+    for d in sorted(rel, reverse=True):                 # mais recentes primeiro
+        if d in feitos or n >= max_downloads:
+            continue
+        n += 1
+        try:
+            res = _ipiranga_release(get(rel[d]["Link_Download"]).content)
+        except Exception:  # noqa: BLE001
+            continue
+        feitos.add(d)
+        if res:
+            cur = list(res)[0]
+            vals[cur] = res[cur]                        # o trimestre do release sempre prevalece
+            for q, v in list(res.items())[1:]:
+                vals.setdefault(q, v)                   # comparativos só preenchem buracos
+    cache["valores"], cache["releases"] = vals, sorted(feitos)
+    serie = [{"tri": q, "rotulo": f"{q[-1]}T{q[2:4]}", "valor": vals[q]} for q in sorted(vals)]
+    return {"arquivo": "releases de resultados da Ultrapar (CVM)", "data_arquivo": max(feitos) if feitos else "", "serie": serie}
+
+
+def build(get, post, cache_ipiranga: dict | None = None) -> dict:
     out = {}
+    if cache_ipiranga is not None:
+        try:
+            out["Ipiranga"] = _ipiranga(get, cache_ipiranga)
+        except Exception as e:  # noqa: BLE001
+            print("Ipiranga EBITDA/m³ falhou:", e)
+    try:
+        out["Raízen"] = _raizen(get)
+    except Exception as e:  # noqa: BLE001  (uma empresa falhar não derruba as outras)
+        print("Raízen EBITDA/m³ falhou:", e)
     for nome, cfg in EMPRESAS.items():
         meta = _latest(post, cfg["cid"], cfg["cat"])
         serie = _serie(get(meta["file_url"]).content, cfg["linha"], cfg["aba"])

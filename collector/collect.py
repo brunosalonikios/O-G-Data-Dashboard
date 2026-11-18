@@ -634,7 +634,14 @@ def fetch_ri_distribuidoras():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import margens_distribuidoras as md
     post = lambda u, b: requests.post(u, json=b, timeout=60)
-    return cache_json(CACHE / "ri_distribuidoras.json", 12, lambda: md.build(lambda u: get(u, timeout=120), post))
+    ip_path = CACHE / "ipiranga_releases.json"
+
+    def build():
+        ip = json.loads(ip_path.read_text()) if ip_path.exists() else {}
+        out = md.build(lambda u: get(u, timeout=180), post, ip)
+        ip_path.write_text(json.dumps(ip, ensure_ascii=False, indent=1))
+        return out
+    return cache_json(CACHE / "ri_distribuidoras.json", 12, build)
 
 
 @section("anp_distribuidoras")

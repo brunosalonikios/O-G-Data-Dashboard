@@ -505,8 +505,8 @@ function cEbitda(){
   const tris=[...new Set(Object.values(E).flatMap(e=>e.serie.map(r=>r.tri)))].sort().filter(t=>t>='2019');
   const lab=t=>t.slice(6)+'T'+t.slice(2,4);
   const cor={'Vibra':1,'Ipiranga':2,'Raízen':3};
-  const ds=Object.entries(E).map(([n,e])=>{ const m=Object.fromEntries(e.serie.map(r=>[r.tri,r.valor])); return line(n, tris.map(t=>m[t]??null), S(cor[n]||4), {pointRadius:2, spanGaps:true}); });
-  const v=E.Vibra; $('#s-ebitda').textContent=`Fonte: planilhas de resultados das companhias (RI)${v?`; Vibra: "${v.arquivo}"`:''}. Lido sempre do arquivo trimestral mais recente. Como reportado pela companhia: picos (ex.: 4T23, 3T24) refletem créditos tributários e, em 2026, subvenções ao diesel.`;
+  const ds=Object.entries(E).map(([n,e])=>{ const m=Object.fromEntries(e.serie.map(r=>[r.tri,r.valor])); return line(n, tris.map(t=>m[t]??null), S(cor[n]||4), {pointRadius:2, spanGaps:false}); });
+  $('#s-ebitda').textContent='Fontes: Vibra, planilha por segmento (RI); Raízen, planilha por segmento, distribuição Brasil (ano-safra abr-mar convertido para trimestre civil); Ipiranga, EBITDA ajustado ÷ volume dos releases da Ultrapar na CVM. Como reportado pelas companhias: picos refletem créditos tributários e, em 2026, subvenções ao diesel. Eixo em trimestres civis.';
   draw('c-ebitda',{type:'line', data:{labels:tris.map(lab), datasets:ds}, options:base({ytick:v=>'R$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.y,0)}/m³`})});
 }
 // ---------- downstream: distribuidoras
