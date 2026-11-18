@@ -59,7 +59,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 .chart.tall{height:380px}
 .chart.short{height:170px}
 .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px}
-.seg button{border:0;background:transparent;color:var(--text-secondary);font:inherit;font-size:12.5px;padding:5px 12px;cursor:pointer}
+.seg button{border:0;background:transparent;color:var(--text-secondary);font:inherit;font-size:12.5px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .seg button[aria-pressed="true"]{background:var(--text-primary);color:var(--surface-1)}
 .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
 .note{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px;color:var(--text-secondary);font-size:13px}
@@ -91,7 +91,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 .chart.short2{height:220px}
 .sect{grid-column:1/-1;font-size:13px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 -4px}
 
-@media (max-width:520px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi .val{font-size:21px}}
+@media (max-width:520px){.seg button{padding:5px 8px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi .val{font-size:21px}}
 @media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}.chart{height:260px}.chart.tall{height:340px}}
 </style>
 </head>
@@ -107,7 +107,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 
   <section class="card wide oil">
     <div class="row"><div><h2>Preço do petróleo</h2><div class="desc" id="d-oil">Brent e WTI, US$ por barril, diário.</div></div>
-      <div class="seg" data-for="oil"><button aria-pressed="false" data-v="3m">3M</button><button aria-pressed="true" data-v="1a">1A</button><button aria-pressed="false" data-v="5a">5A</button><button aria-pressed="false" data-v="tudo">Desde 2015</button></div></div>
+      <div class="seg" data-for="oil"><button aria-pressed="false" data-v="1d">1D</button><button aria-pressed="false" data-v="1s">1S</button><button aria-pressed="false" data-v="1m">1M</button><button aria-pressed="false" data-v="3m">3M</button><button aria-pressed="true" data-v="1a">1A</button><button aria-pressed="false" data-v="5a">5A</button><button aria-pressed="false" data-v="tudo">Desde 2015</button></div></div>
     <div class="oilstats" id="oilstats"></div>
     <div class="chart"><canvas id="c-oil"></canvas></div>
     <div class="src">Fonte: EIA (spot Brent Europa e WTI Cushing), com atraso de alguns dias úteis.</div>
@@ -577,30 +577,29 @@ function cOil(){
   const M=D.mercado; if(!M?.brent_diario) return;
   const B=M.brent_diario, W=Object.fromEntries((M.wti_diario||[]).map(r=>[r[0],r[1]]));
   const last=B[B.length-1][0], dt=new Date(last+'T00:00:00Z');
-  const back={ '3m':91, '1a':366, '5a':1827, 'tudo':1e5 }[state.oil];
-  const from=new Date(dt-back*864e5).toISOString().slice(0,10);
-  const R=B.filter(r=>r[0]>=from);
   const WA=(M.wti_diario||[]);
-  const atS=(S,days)=>{ const t=new Date(dt-days*864e5).toISOString().slice(0,10); let v=null; for(const r of S){ if(r[0]<=t) v=r[1]; else break; } return v; };
+  const back={ '1d':0, '1s':7, '1m':30, '3m':91, '1a':365, '5a':1826, 'tudo':1e5 }[state.oil];
+  // data-base: o último dado anterior ao início do período (no 1D, o pregão anterior)
+  const ref=(S)=>{ if(!S.length) return null; if(state.oil==='1d') return S[S.length-2]||S[0];
+    const t=new Date(dt-back*864e5).toISOString().slice(0,10); let v=S[0]; for(const r of S){ if(r[0]<=t) v=r; else break; } return v; };
+  const B0=ref(B), W0=ref(WA);
+  const R=B.filter(r=>r[0]>=B0[0]);
   const bl=B[B.length-1][1], wl=W[last];
   const wlast=WA.length?WA[WA.length-1]:null;
   const yr=B.filter(r=>r[0]>=last.slice(0,4)+'-01-01').map(r=>r[1]);
   const pc=(a,b)=>a&&b?`<span class="${a>=b?'up':'down'}">${pctf(a/b-1)}</span>`:'–';
-  const plab={'3m':'Em 3 meses','1a':'Em 12 meses','5a':'Em 5 anos','tudo':'Desde 2015'}[state.oil];
-  const R0=R[0], W0=WA.find(r=>r[0]>=from);
-  const varia=(t,bv,bref,wv,wref)=>`<div>${t}<b>${pc(bv,bref)}</b><small class="sub">WTI ${pc(wv,wref)}</small></div>`;
+  const plab={'1d':'No dia','1s':'Na semana','1m':'Em 1 mês','3m':'Em 3 meses','1a':'Em 12 meses','5a':'Em 5 anos','tudo':'Desde 2015'}[state.oil];
+  const R0=B0;
   $('#oilstats').innerHTML=`<div>Brent · ${dlab(last)}<b>US$ ${fmt(bl,2)}</b></div><div>WTI${wlast?' · '+dlab(wlast[0]):''}<b>${wlast?'US$ '+fmt(wlast[1],2):'–'}</b></div><div>Spread Brent − WTI<b>${wl!=null?'US$ '+fmt(bl-wl,2):'–'}</b></div>`+
-    varia('No dia', bl, B[B.length-2]?.[1], wlast?.[1], WA[WA.length-2]?.[1])+
-    varia('Na semana', bl, atS(B,7), wlast?.[1], atS(WA,7))+
-    varia('Em 1 mês', bl, atS(B,30), wlast?.[1], atS(WA,30))+
-    varia(plab, bl, R0?.[1], wlast?.[1], W0?.[1])+
+    `<div>Brent ${plab.toLowerCase()}<b>${pc(bl,B0?.[1])}</b><small class="sub">desde ${dlab(B0[0])}</small></div>`+
+    `<div>WTI ${plab.toLowerCase()}<b>${pc(wlast?.[1],W0?.[1])}</b><small class="sub">${W0?'desde '+dlab(W0[0]):''}</small></div>`+
     `<div>Média ${last.slice(0,4)}<b>US$ ${fmt(yr.reduce((a,b)=>a+b,0)/yr.length,1)}</b></div>`;
-  const lab = state.oil==='3m'||state.oil==='1a' ? dlab : (k=>mlab(k.slice(0,7)));
+  const lab = ['5a','tudo'].includes(state.oil) ? (k=>mlab(k.slice(0,7))) : dlab;
   const ini={Brent:R0?.[1], WTI:W0?.[1]};
   const o=base({zero:false, ytick:v=>'US$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: US$ ${fmt(c.parsed.y,2)}/bbl`+(ini[c.dataset.label]?` (${pctf(c.parsed.y/ini[c.dataset.label]-1)} no período)`:'')});
   o.plugins.tooltip.callbacks.title=it=>dlab(R[it[0].dataIndex][0]);
   o.scales.x.ticks.callback=function(v){ return lab(R[v][0]); }; o.scales.x.ticks.maxTicksLimit=8;
-  o.elements.line.borderWidth=1.6; o.elements.line.tension=0;
+  o.elements.line.borderWidth=1.6; o.elements.line.tension=0; if(R.length<40) o.elements.point.radius=3;
   draw('c-oil',{type:'line', data:{labels:R.map(r=>r[0]), datasets:[line('Brent', R.map(r=>r[1]), S(1)), line('WTI', R.map(r=>W[r[0]]??null), S(2), {spanGaps:true})]}, options:o});
 }
 
