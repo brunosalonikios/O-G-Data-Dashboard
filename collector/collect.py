@@ -610,6 +610,25 @@ def fetch_argentina():
     return cache_json(CACHE / "argentina.json", 12, lambda: argentina.build(lambda u: get(u, timeout=120).content))
 
 
+@section("argentina_pozos")
+def fetch_argentina_pozos():
+    """Poço a poço (PetroDB/Hugging Face): só reconstrói quando o repositório muda."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import argentina_pozos as ap
+    path = CACHE / "argentina_pozos.json"
+    old = json.loads(path.read_text()) if path.exists() else None
+    if old and time.time() - old.get("_ts", 0) < 6 * 3600:
+        return old["data"]
+    sha = ap.versao(lambda u: get(u, timeout=60))
+    if old and old.get("sha") == sha:
+        old["_ts"] = int(time.time())
+        path.write_text(json.dumps(old, ensure_ascii=False))
+        return old["data"]
+    data = ap.build(lambda u: get(u, timeout=600))
+    path.write_text(json.dumps({"_ts": int(time.time()), "sha": sha, "data": data}, ensure_ascii=False))
+    return data
+
+
 @section("anp_distribuidoras")
 def fetch_downstream():
     """Vendas por distribuidora, canais e fornecedores (ANP liquidos.zip, ~22 MB).
@@ -789,6 +808,7 @@ def main():
     comex = fetch_comex()
     dstream = fetch_downstream()
     arg = fetch_argentina()
+    argp = fetch_argentina_pozos()
 
     D = dict(prev)  # mantém blocos anteriores se algo falhar
     D["gerado_em"] = prev.get("gerado_em")
@@ -882,6 +902,8 @@ def main():
         D["downstream"] = dstream
     if arg:
         D["argentina"] = arg
+    if argp:
+        D.setdefault("argentina", {})["pozos"] = argp
     # ---- composição do preço na bomba: série acumulada a cada semana nova
     comp_path = ROOT / "data" / "cache" / "composicao.json"
     hist = json.loads(comp_path.read_text()) if comp_path.exists() else {}

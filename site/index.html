@@ -214,27 +214,43 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 
   <div class="tab" id="tab-argentina" hidden>
   <section class="kpis" id="kpis-ar"></section>
+  <div class="row bar" style="margin-top:0"><div class="desc" style="margin:0" id="d-arfonte">Upstream poço a poço.</div>
+    <div class="seg" data-for="arvm" style="margin:0"><button aria-pressed="true" data-v="oil">Petróleo</button><button aria-pressed="false" data-v="gas">Gás natural</button></div></div>
   <section class="grid">
     <div class="card wide">
-      <div class="row"><div><h2>Produção por empresa</h2><div class="desc" id="d-arprod">Média diária no mês.</div></div>
-        <div class="seg" data-for="arprod"><button aria-pressed="true" data-v="oil">Petróleo</button><button aria-pressed="false" data-v="gas">Gás natural</button></div></div>
-      <div class="chart"><canvas id="c-arprod"></canvas></div>
-      <div class="src">Fonte: Ministério da Economia da Argentina, série "Producción y ventas por empresa" (dados da Secretaria de Energia). Só as empresas que a série acompanha; não é o total do país.</div>
+      <h2>Vaca Muerta vs. demais formações</h2><div class="desc" id="d-arvm">Média diária no mês.</div>
+      <div class="chart"><canvas id="c-arvm"></canvas></div>
+      <div class="src">Fonte: Secretaria de Energia da Argentina, produção mensal por poço (Capítulo IV), via PetroDB (CC BY 4.0). Vaca Muerta = poços cuja formação produtora é Vaca Muerta (quase todo o shale do país).</div>
+    </div>
+    <div class="card wide">
+      <h2>Vaca Muerta por operador</h2><div class="desc" id="d-arvmop">Média diária no mês.</div>
+      <div class="chart"><canvas id="c-arvmop"></canvas></div>
+      <div class="src">Fonte: Secretaria de Energia da Argentina, produção mensal por poço (Capítulo IV), via PetroDB (CC BY 4.0). Produção atribuída 100% ao operador do poço em cada mês (não é participação societária).</div>
     </div>
     <div class="card">
-      <h2>Ranking de produtores</h2><div class="desc" id="d-arrank">Último mês vs. um ano antes.</div>
-      <div class="chart"><canvas id="c-arrank"></canvas></div>
-      <div class="src">Produção operada. Rótulos de algumas colunas de gás corrigidos (deslocados na fonte).</div>
+      <h2>Maiores produtores do país</h2><div class="desc" id="d-arrank">Último mês vs. um ano antes.</div>
+      <div class="chart tall"><canvas id="c-arrank"></canvas></div>
+      <div class="src">Fonte: Secretaria de Energia da Argentina, produção mensal por poço (Capítulo IV), via PetroDB (CC BY 4.0). Empresas do mesmo grupo somadas.</div>
     </div>
     <div class="card">
+      <h2>Produtividade dos poços novos em Vaca Muerta</h2><div class="desc">Petróleo médio nos 6 primeiros meses de produção, bbl/d por poço, por ano de entrada.</div>
+      <div class="chart tall"><canvas id="c-arprodv"></canvas></div>
+      <div class="src">Fonte: Secretaria de Energia da Argentina, produção mensal por poço (Capítulo IV), via PetroDB (CC BY 4.0). Inclui todos os poços de Vaca Muerta com petróleo; operadores focados em gás aparecem com valores baixos.</div>
+    </div>
+    <div class="card">
+      <h2>Poços novos em Vaca Muerta</h2><div class="desc">Poços que começaram a produzir no mês.</div>
+      <div class="chart"><canvas id="c-arnovos"></canvas></div>
+      <div class="src">Fonte: Secretaria de Energia da Argentina, produção mensal por poço (Capítulo IV), via PetroDB (CC BY 4.0). Petróleo ou gás pela classificação oficial do poço. Os últimos meses tendem a ser revisados para cima.</div>
+    </div>
+    <div class="card">
+      <h2>Exploração e perfuração no país</h2><div class="desc">Poços terminados por mês, por tipo.</div>
+      <div class="chart"><canvas id="c-arpoc"></canvas></div>
+      <div class="src">Fonte: Ministério da Economia da Argentina, "Pozos de petróleo y metros perforados" (dados mais recentes que a base poço a poço).</div>
+    </div>
+    <div class="card wide">
       <h2>Gás natural: produção e consumo</h2><div class="desc">Milhões de m³ por dia, média no mês.</div>
       <div class="chart"><canvas id="c-argas"></canvas></div>
       <div class="src">Fonte: Ministério da Economia da Argentina, "Producción y consumo de gas natural" (ENARGAS / Secretaria de Energia).</div>
-    </div>
-    <div class="card">
-      <h2>Poços terminados</h2><div class="desc">Poços concluídos por mês, todo o país.</div>
-      <div class="chart"><canvas id="c-arpoc"></canvas></div>
-      <div class="src">Fonte: Ministério da Economia da Argentina, "Pozos de petróleo y metros perforados".</div>
     </div>
     <h3 class="sect">Distribuição de combustíveis</h3>
     <div class="card">
@@ -260,7 +276,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <li><b>Pré-sal</b>: participação pela classificação da ANP por poço (arquivos até 2025) e, nos arquivos mais novos sem essa coluna, pela zona produtora (Barra Velha, Itapema, Macabu, Coqueiros, Piçarras).</li>
       <li><b>Operador</b>: mapa campo → operador do último arquivo da ANP com essa coluna (dez/2023), agrupando empresas do mesmo grupo; campos que entraram em produção depois aparecem como "Não mapeado", exceto Bacalhau (Equinor).</li>
       <li><b>Distribuidoras</b>: vendas por agente do painel de combustíveis líquidos da ANP, com empresas do mesmo grupo somadas; o último mês é descartado se vier claramente incompleto.</li>
-    <li><b>Argentina</b>: o portal da Secretaria de Energia (datos.energia.gob.ar) não responde fora da Argentina, então usamos as séries mensais que o Ministério da Economia republica em datos.gob.ar. Elas cobrem as maiores empresas, não o total do país, e não trazem preços na bomba.</li>
+    <li><b>Argentina</b>: o portal da Secretaria de Energia não responde fora da Argentina. A parte de upstream usa a produção mensal por poço da Secretaria redistribuída pelo projeto PetroDB (atualizada quando sai o arquivo de cada ano; hoje vai até dez/2025); Vaca Muerta = formação produtora Vaca Muerta; operador = operador do poço em cada mês. Gás, poços terminados e vendas por bandeira vêm das séries mensais do Ministério da Economia (datos.gob.ar), que são mais recentes mas cobrem só as maiores empresas. Reservas e preços na bomba ainda não têm fonte acessível.</li>
     <li><b>Premissas</b> (perguntas em aberto no escopo): uso pessoal; rótulos em português.</li>
     </ul>
     <div id="fontes" style="margin-top:10px"></div>
@@ -278,7 +294,7 @@ const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); }
 const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
 const S = i => css('--s'+i);
 let D = null, META = null; const charts = {};
-const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', marg:'diesel', tab:'upstream'};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', tab:'upstream'};
 const PNOME = {diesel:'diesel B', gasolina:'gasolina C', etanol:'etanol hidratado'};
 
 function base(opts={}){
@@ -523,36 +539,69 @@ function cForn(){
 
 // ---------- Argentina
 const ACOR = {'YPF':1,'Pan American':2,'Pluspetrol':3,'Tecpetrol':4,'Chevron':5,'TotalEnergies':7,'Sinopec':6,'ENAP Sipetrol':8,'Petrobras Argentina':null};
+const ACOR2 = {'YPF':1,'Vista':2,'Pampa':3,'Pluspetrol':4,'Shell':5,'Pan American':6,'Chevron':7,'Tecpetrol':8,'TotalEnergies':null,'Outras':null};
+const acor = k => ACOR2[k] ? S(ACOR2[k]) : css('--neutral');
 function kpisAr(){
-  const A=D.argentina; if(!A) return; const tile=tiles('#kpis-ar');
-  const ro=A.ranking_petroleo, rg=A.ranking_gas;
-  if(ro){ const y=ro.itens.find(i=>i.empresa==='YPF'); if(y) tile(`Petróleo YPF · ${mlab(ro.mes)}`, fmt(y.valor,0), 'mil bbl/d', y.valor_aa?dlt(y.valor/y.valor_aa-1,'a/a'):''); }
+  const A=D.argentina; if(!A) return; const tile=tiles('#kpis-ar'), P=A.pozos;
+  if(P){
+    const L=P.vm_total[P.vm_total.length-1], ago=P.vm_total.find(r=>r.mes===`${+L.mes.slice(0,4)-1}${L.mes.slice(4)}`);
+    const vo=L.oil['Vaca Muerta'], to=vo+(L.oil['Demais formações']||0);
+    tile(`Petróleo de Vaca Muerta · ${mlab(L.mes)}`, fmt(vo,0), 'mil bbl/d', ago?dlt(vo/ago.oil['Vaca Muerta']-1,'a/a'):'');
+    tile(`Vaca Muerta no petróleo do país · ${mlab(L.mes)}`, fmt(vo/to*100,0), '%', ago?`${fmt(ago.oil['Vaca Muerta']/(ago.oil['Vaca Muerta']+ago.oil['Demais formações'])*100,0)}% um ano antes`:'');
+    const vg=L.gas['Vaca Muerta'], tg=vg+(L.gas['Demais formações']||0);
+    tile(`Gás de Vaca Muerta · ${mlab(L.mes)}`, fmt(vg,1), 'mi m³/d', `${fmt(vg/tg*100,0)}% do gás do país`);
+    const yr=L.mes.slice(0,4), n=P.pocos_novos_vm.filter(r=>r.mes.startsWith(yr)).reduce((a,r)=>a+r.oil+r.gas,0);
+    const n0=P.pocos_novos_vm.filter(r=>r.mes.startsWith(String(+yr-1))).reduce((a,r)=>a+r.oil+r.gas,0);
+    tile(`Poços novos em Vaca Muerta · ${yr}`, fmt(n,0), '', `${fmt(n0,0)} em ${+yr-1}`);
+  }
   const g=[...(A.gas_total||[])].reverse().find(r=>r.producao!=null);
   if(g){ const ago=(A.gas_total||[]).find(r=>r.mes===`${+g.mes.slice(0,4)-1}${g.mes.slice(4)}`); tile(`Gás natural, país · ${mlab(g.mes)}`, fmt(g.producao,1), 'mi m³/d', ago?.producao?dlt(g.producao/ago.producao-1,'a/a'):''); }
-  const v=A.vendas_bandeira?.[A.vendas_bandeira.length-1];
-  if(v?.diesel){ const t=Object.values(v.diesel).reduce((a,b)=>a+b,0); tile(`YPF no diesel · ${mlab(v.mes)}`, fmt(v.diesel.YPF/t*100,1), '%', 'entre as quatro maiores bandeiras'); }
-  if(v?.gasolina){ const t=Object.values(v.gasolina).reduce((a,b)=>a+b,0); tile(`YPF na gasolina · ${mlab(v.mes)}`, fmt(v.gasolina.YPF/t*100,1), '%', 'entre as quatro maiores bandeiras'); }
-  const pc=A.pocos?.[A.pocos.length-1]; if(pc) tile(`Poços terminados · ${mlab(pc.mes)}`, fmt(pc.pocos,0), '', `${fmt(pc.metros_mil,0)} mil metros perforados`);
+  const pc=A.pocos?.[A.pocos.length-1]; if(pc) tile(`Poços terminados · ${mlab(pc.mes)}`, fmt(pc.pocos,0), '', `${pc.exploracao} de exploração · ${fmt(pc.metros_mil,0)} mil m perfurados`);
+  if(P) $('#d-arfonte').innerHTML=`Dados poço a poço até <b>${mlab(P.fonte_ultimo_mes)}</b> (a base é atualizada quando a Secretaria de Energia publica o arquivo do ano). Gás, poços terminados e distribuição vêm de séries mais recentes.`;
 }
-function cArProd(){
-  const A=D.argentina; if(!A) return; const oil=state.arprod==='oil';
-  const R=(oil?A.petroleo_empresas:A.gas_empresas)||[];
-  const last=R[R.length-1]||{}; const keys=Object.keys(ACOR).filter(k=>R.some(r=>r[k]));
-  keys.sort((a,b)=>(last[b]||0)-(last[a]||0));
-  $('#d-arprod').textContent= oil ? 'Petróleo operado, mil barris por dia (média no mês).' : 'Gás natural operado, milhões de m³ por dia (média no mês).';
-  const ds=keys.map(k=>({type:'line', label:k, data:R.map(r=>r[k]??0), backgroundColor:(ACOR[k]?S(ACOR[k]):css('--neutral'))+'cc', borderColor:ACOR[k]?S(ACOR[k]):css('--neutral'), borderWidth:1, fill:true}));
-  draw('c-arprod',{type:'line', data:{labels:R.map(r=>mlab(r.mes)), datasets:ds}, options:base({stacked:true, tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,oil?0:1)} ${oil?'mil bbl/d':'mi m³/d'}`})});
+function areaStack(id, rows, keys, unit, dec){
+  const ds=keys.map(k=>({type:'line', label:k, data:rows.map(r=>r[k]??0), backgroundColor:acor(k)+'cc', borderColor:acor(k), borderWidth:1, fill:true}));
+  draw(id,{type:'line', data:{labels:rows.map(r=>mlab(r.mes)), datasets:ds}, options:base({stacked:true, tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,dec)} ${unit}`})});
+}
+const ARU = () => state.arvm==='oil' ? ['mil bbl/d',0,'Petróleo, mil barris por dia'] : ['mi m³/d',1,'Gás natural, milhões de m³ por dia'];
+function cArVM(){
+  const P=D.argentina?.pozos; if(!P) return; const [u,d,t]=ARU(), f=state.arvm;
+  $('#d-arvm').textContent=`${t}, média no mês.`;
+  const rows=P.vm_total.map(r=>({mes:r.mes, ...r[f]}));
+  const ds=[['Vaca Muerta',1],['Demais formações',null]].map(([k,c])=>({type:'line', label:k, data:rows.map(r=>r[k]??0), backgroundColor:(c?S(c):css('--neutral'))+'cc', borderColor:c?S(c):css('--neutral'), borderWidth:1, fill:true}));
+  draw('c-arvm',{type:'line', data:{labels:rows.map(r=>mlab(r.mes)), datasets:ds}, options:base({stacked:true, tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,d)} ${u}`})});
+}
+function cArVMOp(){
+  const P=D.argentina?.pozos; if(!P) return; const [u,d,t]=ARU(), f=state.arvm;
+  $('#d-arvmop').textContent=`${t} em Vaca Muerta, por operador.`;
+  const rows=P.vm_operadores.filter(r=>r.mes>='2016-01').map(r=>({mes:r.mes, ...r[f]}));
+  const L=rows[rows.length-1]; const keys=Object.keys(L).filter(k=>k!=='mes'&&k!=='Outras').sort((a,b)=>(L[b]||0)-(L[a]||0)); keys.push('Outras');
+  areaStack('c-arvmop', rows, keys, u, d);
 }
 function cArRank(){
-  const A=D.argentina; if(!A) return; const oil=state.arprod==='oil';
-  const K=oil?A.ranking_petroleo:A.ranking_gas; if(!K) return;
-  $('#d-arrank').textContent=`${oil?'Petróleo, mil bbl/d':'Gás, mi m³/d'}: ${mlab(K.mes)} vs. um ano antes. Alterna junto com o gráfico acima.`;
+  const P=D.argentina?.pozos; if(!P) return; const oil=state.arvm==='oil', f=state.arvm;
+  const R=[...P.ranking].sort((a,b)=>(b[f]||0)-(a[f]||0)).slice(0,12);
+  const ult=P.fonte_ultimo_mes, ago=`${+ult.slice(0,4)-1}${ult.slice(4)}`;
+  $('#d-arrank').textContent=`${oil?'Petróleo, mil bbl/d':'Gás, mi m³/d'} operado: ${mlab(ult)} vs. ${mlab(ago)}.`;
   const o=base({tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.x,1)}`}); o.indexAxis='y'; o.scales.x.grid={color:css('--grid')}; o.scales.y.grid={display:false};
   o.scales.y.ticks.callback=function(v){return this.getLabelForValue(v)};
-  const ago=`${+K.mes.slice(0,4)-1}${K.mes.slice(4)}`;
-  draw('c-arrank',{type:'bar', data:{labels:K.itens.map(i=>i.empresa), datasets:[
-    {label:mlab(K.mes), data:K.itens.map(i=>i.valor), backgroundColor:S(1), barThickness:9},
-    {label:mlab(ago), data:K.itens.map(i=>i.valor_aa), backgroundColor:css('--neutral'), barThickness:9}]}, options:o});
+  const ds=[{label:mlab(ult), data:R.map(r=>r[f]), backgroundColor:R.map(r=>acor(r.empresa)), barThickness:9},
+            {label:mlab(ago), data:R.map(r=>r[f+'_aa']??null), backgroundColor:css('--neutral'), barThickness:9}];
+  draw('c-arrank',{type:'bar', data:{labels:R.map(r=>r.empresa), datasets:ds}, options:o});
+}
+function cArProdV(){
+  const P=D.argentina?.pozos; if(!P) return;
+  const anos=[...new Set(P.produtividade_vm.map(r=>r.ano))].sort();
+  const who=['Todos','YPF','Vista','Pampa','Shell','Pluspetrol','Pan American','Chevron'];
+  const ds=who.map(w=>{ const m=Object.fromEntries(P.produtividade_vm.filter(r=>r.empresa===w && r.pocos>=5).map(r=>[r.ano,r])); 
+    return line(w==='Todos'?'Média de Vaca Muerta':w, anos.map(a=>m[a]?.bbl_d??null), w==='Todos'?css('--text-primary'):acor(w), {spanGaps:true, borderWidth:w==='Todos'?3:1.6, pointRadius:2, _n:anos.map(a=>m[a]?.pocos)}); });
+  draw('c-arprodv',{type:'line', data:{labels:anos.map(String), datasets:ds}, options:base({tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,0)} bbl/d (${c.dataset._n[c.dataIndex]} poços)`})});
+}
+function cArNovos(){
+  const P=D.argentina?.pozos; if(!P) return; const R=P.pocos_novos_vm.filter(r=>r.mes>='2018-01');
+  draw('c-arnovos',{type:'bar', data:{labels:R.map(r=>mlab(r.mes)), datasets:[
+    {label:'Petróleo', data:R.map(r=>r.oil), backgroundColor:S(1), stack:'n', borderRadius:0},
+    {label:'Gás', data:R.map(r=>r.gas), backgroundColor:S(4), stack:'n', borderRadius:0}]}, options:base({stacked:true, tip:c=>` ${c.dataset.label}: ${c.parsed.y} poços`})});
 }
 function cArGas(){
   const G=D.argentina?.gas_total||[]; if(!G.length) return;
@@ -589,7 +638,7 @@ function stamp(){
   const f=x=>x.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
   const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok).map(([k])=>k);
   el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte com falha nesta rodada (mantido o último dado): ${bad.join(', ')}</span>`:''}`;
-  const names={anp_distribuidoras:'ANP vendas por distribuidora',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  const names={anp_distribuidoras:'ANP vendas por distribuidora',argentina_pozos:'Argentina poço a poço (PetroDB)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
   $('#fontes').innerHTML='<b>Situação das fontes na última rodada:</b> '+Object.entries(META.fontes||{}).map(([k,v])=>`${names[k]||k} ${v.ok?'✓':'✗'}`).join(' · ');
 }
 
@@ -602,7 +651,7 @@ function metodo(){
 const TABS = {
   upstream:[kpisUp, cProd, cOp, cCampos, cCom],
   downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cVendas, cShare, tRank, cBig3, cCanais, cForn],
-  argentina:[kpisAr, cArProd, cArRank, cArGas, cArShare, cArVol, cArPoc],
+  argentina:[kpisAr, cArVM, cArVMOp, cArRank, cArProdV, cArNovos, cArPoc, cArGas, cArShare, cArVol],
 };
 function run(f){ try{ f(); }catch(e){ console.error(f.name, e); } }
 function renderAll(){ run(metodo); run(cOil); TABS[state.tab].forEach(run); run(stamp); }
