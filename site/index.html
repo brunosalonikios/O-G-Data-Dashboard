@@ -74,6 +74,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 .oilstats{display:flex;flex-wrap:wrap;gap:8px 28px;margin:0 0 8px}
 .oilstats div{font-size:12px;color:var(--text-secondary)}
 .oilstats b{display:block;font-size:22px;color:var(--text-primary);font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.oilstats .sub{display:block;font-size:11.5px;color:var(--text-secondary);margin-top:1px}
 .bar{align-items:center;margin:20px 0 12px}
 .margbig{display:flex;flex-wrap:wrap;gap:6px 24px;margin-bottom:6px}
 .margbig div{font-size:12px;color:var(--text-secondary)}
@@ -579,14 +580,24 @@ function cOil(){
   const back={ '3m':91, '1a':366, '5a':1827, 'tudo':1e5 }[state.oil];
   const from=new Date(dt-back*864e5).toISOString().slice(0,10);
   const R=B.filter(r=>r[0]>=from);
-  const at=(days)=>{ const t=new Date(dt-days*864e5).toISOString().slice(0,10); let v=null; for(const r of B){ if(r[0]<=t) v=r[1]; else break; } return v; };
+  const WA=(M.wti_diario||[]);
+  const atS=(S,days)=>{ const t=new Date(dt-days*864e5).toISOString().slice(0,10); let v=null; for(const r of S){ if(r[0]<=t) v=r[1]; else break; } return v; };
   const bl=B[B.length-1][1], wl=W[last];
+  const wlast=WA.length?WA[WA.length-1]:null;
   const yr=B.filter(r=>r[0]>=last.slice(0,4)+'-01-01').map(r=>r[1]);
-  const ch=(a,b)=>a&&b?`<span class="${a>=b?'up':'down'}">${pctf(a/b-1)}</span>`:'–';
-  $('#oilstats').innerHTML=`<div>Brent · ${dlab(last)}<b>US$ ${fmt(bl,2)}</b></div><div>WTI<b>${wl!=null?'US$ '+fmt(wl,2):'–'}</b></div><div>Spread Brent − WTI<b>${wl!=null?'US$ '+fmt(bl-wl,2):'–'}</b></div>`+
-    `<div>Brent em 1 mês<b>${ch(bl,at(30))}</b></div><div>Em 12 meses<b>${ch(bl,at(365))}</b></div><div>Média ${last.slice(0,4)}<b>US$ ${fmt(yr.reduce((a,b)=>a+b,0)/yr.length,1)}</b></div>`;
+  const pc=(a,b)=>a&&b?`<span class="${a>=b?'up':'down'}">${pctf(a/b-1)}</span>`:'–';
+  const plab={'3m':'Em 3 meses','1a':'Em 12 meses','5a':'Em 5 anos','tudo':'Desde 2015'}[state.oil];
+  const R0=R[0], W0=WA.find(r=>r[0]>=from);
+  const varia=(t,bv,bref,wv,wref)=>`<div>${t}<b>${pc(bv,bref)}</b><small class="sub">WTI ${pc(wv,wref)}</small></div>`;
+  $('#oilstats').innerHTML=`<div>Brent · ${dlab(last)}<b>US$ ${fmt(bl,2)}</b></div><div>WTI${wlast?' · '+dlab(wlast[0]):''}<b>${wlast?'US$ '+fmt(wlast[1],2):'–'}</b></div><div>Spread Brent − WTI<b>${wl!=null?'US$ '+fmt(bl-wl,2):'–'}</b></div>`+
+    varia('No dia', bl, B[B.length-2]?.[1], wlast?.[1], WA[WA.length-2]?.[1])+
+    varia('Na semana', bl, atS(B,7), wlast?.[1], atS(WA,7))+
+    varia('Em 1 mês', bl, atS(B,30), wlast?.[1], atS(WA,30))+
+    varia(plab, bl, R0?.[1], wlast?.[1], W0?.[1])+
+    `<div>Média ${last.slice(0,4)}<b>US$ ${fmt(yr.reduce((a,b)=>a+b,0)/yr.length,1)}</b></div>`;
   const lab = state.oil==='3m'||state.oil==='1a' ? dlab : (k=>mlab(k.slice(0,7)));
-  const o=base({zero:false, ytick:v=>'US$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: US$ ${fmt(c.parsed.y,2)}/bbl`});
+  const ini={Brent:R0?.[1], WTI:W0?.[1]};
+  const o=base({zero:false, ytick:v=>'US$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: US$ ${fmt(c.parsed.y,2)}/bbl`+(ini[c.dataset.label]?` (${pctf(c.parsed.y/ini[c.dataset.label]-1)} no período)`:'')});
   o.plugins.tooltip.callbacks.title=it=>dlab(R[it[0].dataIndex][0]);
   o.scales.x.ticks.callback=function(v){ return lab(R[v][0]); }; o.scales.x.ticks.maxTicksLimit=8;
   o.elements.line.borderWidth=1.6; o.elements.line.tension=0;
