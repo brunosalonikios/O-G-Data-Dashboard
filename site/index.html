@@ -84,6 +84,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 .tbl td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--grid)}
 .tbl th:first-child,.tbl td:first-child{text-align:left}
 .chart.short2{height:220px}
+.sect{grid-column:1/-1;font-size:13px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 -4px}
 
 @media (max-width:520px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi .val{font-size:21px}}
 @media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}.chart{height:260px}.chart.tall{height:340px}}
@@ -231,6 +232,12 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <div class="src">Fonte: Ministério da Economia da Argentina, "Producción y consumo de gas natural" (ENARGAS / Secretaria de Energia).</div>
     </div>
     <div class="card">
+      <h2>Poços terminados</h2><div class="desc">Poços concluídos por mês, todo o país.</div>
+      <div class="chart"><canvas id="c-arpoc"></canvas></div>
+      <div class="src">Fonte: Ministério da Economia da Argentina, "Pozos de petróleo y metros perforados".</div>
+    </div>
+    <h3 class="sect">Distribuição de combustíveis</h3>
+    <div class="card">
       <div class="row"><div><h2>Market share das bandeiras</h2><div class="desc" id="d-arshare">Diesel (gasoil), participação entre as quatro maiores.</div></div>
         <div class="seg" data-for="arv"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
       <div class="chart"><canvas id="c-arshare"></canvas></div>
@@ -240,11 +247,6 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <h2>Volume vendido por bandeira</h2><div class="desc" id="d-arvol">Mil m³ por mês, média móvel de 3 meses.</div>
       <div class="chart"><canvas id="c-arvol"></canvas></div>
       <div class="src">Fonte: Ministério da Economia da Argentina.</div>
-    </div>
-    <div class="card wide">
-      <h2>Poços terminados</h2><div class="desc">Poços concluídos por mês, todo o país.</div>
-      <div class="chart short2"><canvas id="c-arpoc"></canvas></div>
-      <div class="src">Fonte: Ministério da Economia da Argentina, "Pozos de petróleo y metros perforados".</div>
     </div>
   </section>
   </div>
