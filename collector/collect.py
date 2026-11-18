@@ -817,6 +817,24 @@ def shift_month(k: str, n: int) -> str:
 
 
 # ------------------------------------------------------------------ main
+@section("anp_pocos")
+def fetch_pocos_br(opmap):
+    """Poço a poço (ANP produção por zona): parados, retomados, novos, maiores. Recalcula a cada 12 h."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import pocos_br
+    def build():
+        links = page_links(f"{ANP_DA}/fase-de-desenvolvimento-e-producao",
+                           r'href="([^"]*producao-por-zona/[^"]+\.csv)"')
+        by_month = {}
+        for u in links:
+            m = re.search(r"(\d{2})[-_]?(\d{4})\.csv$", u, re.I)
+            if m:
+                by_month[ym(int(m.group(2)), int(m.group(1)))] = u
+        oper = lambda f: operator_group(OPERADOR_EXTRA.get(f) or (opmap or {}).get(f, "Não mapeado"))
+        return pocos_br.build(lambda u: get(u, timeout=180), by_month, CACHE / "pocos_br", oper)
+    return cache_json(CACHE / "pocos_br.json", 12, build)
+
+
 def main():
     prev = json.loads(OUT.read_text()) if OUT.exists() else {}
 
@@ -834,6 +852,7 @@ def main():
     arg = fetch_argentina()
     ri = fetch_ri_distribuidoras()
     argp = fetch_argentina_pozos()
+    pocos = fetch_pocos_br(opmap)
 
     D = dict(prev)  # mantém blocos anteriores se algo falhar
     D["gerado_em"] = prev.get("gerado_em")
@@ -931,6 +950,8 @@ def main():
         D["ebitda_m3"] = ri
     if argp:
         D.setdefault("argentina", {})["pozos"] = argp
+    if pocos:
+        D["pocos_br"] = pocos
     # ---- composição do preço na bomba: série acumulada a cada semana nova
     comp_path = ROOT / "data" / "cache" / "composicao.json"
     hist = json.loads(comp_path.read_text()) if comp_path.exists() else {}

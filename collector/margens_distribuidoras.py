@@ -124,8 +124,15 @@ def _raizen(get, cache: dict | None = None) -> dict:
             fq = cq - 1 if cq > 1 else 4
             vals[k] = {"tri": k, "rotulo": f"{fq}T {fy - 2001:02d}'{fy - 2000:02d}", "valor": v["valor"],
                        "fonte": "release, EBITDA normalizado" if v["tipo"] == "norm" else "release"}
+    # Convenção de mercado (pedido da Andrea): o trimestre nT do ano-safra AA'BB aparece como nT de 20AA,
+    # ex.: 2T 26'27 (jul-set/26) no 2T26. Ou seja, um trimestre antes do calendário civil.
+    serie = []
+    for k in sorted(vals):
+        r = dict(vals[k])
+        r["tri"] = _tri_menos(k, 1)
+        serie.append(r)
     return {"arquivo": "Planilha por Segmento " + files[-1]["refDate"][:4], "data_arquivo": files[-1].get("createdAt", "")[:10],
-            "serie": [vals[k] for k in sorted(vals)]}
+            "serie": serie}
 
 
 # ---------------- Ipiranga: releases de resultados da Ultrapar entregues à CVM (IPE)
