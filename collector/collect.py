@@ -873,11 +873,14 @@ def fetch_brent_futuro():
         m = i["meta"]
         intradia = [[_dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%dT%H:%MZ"), round(v, 2)]
                     for t, v in zip(i.get("timestamp") or [], i["indicators"]["quote"][0]["close"]) if v is not None]
+        h = json.loads(get(base.format(s=sym), params={"range": "1mo", "interval": "60m"}, timeout=60).content)["chart"]["result"][0]
+        horario = [[_dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%dT%H:%MZ"), round(v, 2)]
+                   for t, v in zip(h.get("timestamp") or [], h["indicators"]["quote"][0]["close"]) if v is not None]
         hora = _dt.datetime.fromtimestamp(m["regularMarketTime"], _dt.UTC)
         diario[hora.strftime("%Y-%m-%d")] = round(m["regularMarketPrice"], 2)
         out[nome] = {"preco": round(m["regularMarketPrice"], 2), "hora": hora.strftime("%Y-%m-%dT%H:%MZ"),
                      "fech_anterior": m.get("previousClose") or m.get("chartPreviousClose"),
-                     "diario": sorted(diario.items()), "intradia": intradia}
+                     "diario": sorted(diario.items()), "intradia": intradia, "horario": horario}
     if len(out.get("brent", {}).get("diario", [])) < 1000:
         raise RuntimeError("histórico do Brent curto demais")
     return out

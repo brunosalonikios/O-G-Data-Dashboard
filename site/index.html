@@ -582,6 +582,7 @@ function cOil(){
   const last=B[B.length-1][0], dt=new Date(last+'T00:00:00Z');
   const hm=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
   const intra=fut&&state.oil==='1d'&&F.brent.intradia?.length>1;
+  const hor=fut&&['1s','1m'].includes(state.oil)&&F.brent.horario?.length>1;
   const back={ '1d':0, '1s':7, '1m':30, '3m':91, '1a':365, '5a':1826, 'tudo':1e5 }[state.oil];
   // data-base: o último dado anterior ao início do período (no 1D, o pregão anterior)
   const ref=(S)=>{ if(!S.length) return null; if(state.oil==='1d') return S[S.length-2]||S[0];
@@ -589,6 +590,8 @@ function cOil(){
   const B0=ref(B), W0=ref(WA);
   let R=B.filter(r=>r[0]>=B0[0]);
   if(intra){ R=F.brent.intradia; W=Object.fromEntries((F.wti?.intradia||[]).map(r=>[r[0],r[1]])); }
+  if(hor){ R=F.brent.horario.filter(r=>r[0].slice(0,10)>B0[0]); W=Object.fromEntries((F.wti?.horario||[]).map(r=>[r[0],r[1]]));
+    if(F.brent.hora&&R.length&&R[R.length-1][0]<F.brent.hora) R=[...R,[F.brent.hora,F.brent.preco]]; }
   const bl=B[B.length-1][1], wl=WA.length?WA[WA.length-1][1]:null;
   const wlast=WA.length?WA[WA.length-1]:null;
   const yr=B.filter(r=>r[0]>=last.slice(0,4)+'-01-01').map(r=>r[1]);
@@ -600,13 +603,18 @@ function cOil(){
     `<div>Brent ${plab.toLowerCase()}<b>${pc(bl,B0?.[1])}</b><small class="sub">desde ${dlab(B0[0])} (US$ ${fmt(B0[1],2)})</small></div>`+
     `<div>Brent, média ${last.slice(0,4)}<b>US$ ${fmt(yr.reduce((a,b)=>a+b,0)/yr.length,1)}</b></div>`+
     `<div class="minor">WTI<b>${wlast?'US$ '+fmt(wlast[1],2):'–'}</b><small class="sub">${plab.toLowerCase()}: ${pc(wlast?.[1],W0?.[1])} · spread ${wl!=null?'US$ '+fmt(bl-wl,2):'–'}</small></div>`;
-  const lab = intra ? hm : ['5a','tudo'].includes(state.oil) ? (k=>mlab(k.slice(0,7))) : dlab;
+  const lab = intra ? hm : hor ? (k=>dlab(k.slice(0,10))) : ['5a','tudo'].includes(state.oil) ? (k=>mlab(k.slice(0,7))) : dlab;
   const ini={Brent:R0?.[1], WTI:W0?.[1]};
   const o=base({zero:false, ytick:v=>'US$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: US$ ${fmt(c.parsed.y,2)}/bbl`+(ini[c.dataset.label]?` (${pctf(c.parsed.y/ini[c.dataset.label]-1)} no período)`:'')});
-  o.plugins.tooltip.callbacks.title=it=>intra?dlab(R[it[0].dataIndex][0].slice(0,10))+', '+hm(R[it[0].dataIndex][0]):dlab(R[it[0].dataIndex][0]);
+  o.plugins.tooltip.callbacks.title=it=>(intra||hor)?dlab(R[it[0].dataIndex][0].slice(0,10))+', '+hm(R[it[0].dataIndex][0]):dlab(R[it[0].dataIndex][0]);
   o.scales.x.ticks.callback=function(v){ return lab(R[v][0]); }; o.scales.x.ticks.maxTicksLimit=8;
   o.elements.line.borderWidth=1.6; o.elements.line.tension=0; if(R.length<40) o.elements.point.radius=3;
-  $('#d-oil').textContent=intra?'US$ por barril, hoje, a cada 5 minutos (horário de Brasília). WTI tracejado, como referência.':'US$ por barril, diário. WTI tracejado, como referência.';
+  if(hor){ // um rótulo por dia (data de Brasília), com espaço mínimo entre eles
+    const dia=k=>new Date(k).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit'});
+    const marcas={}; let ultimo=-1e9; const gap=Math.max(1,Math.round(R.length/(innerWidth<600?4:11)));
+    R.forEach((r,i)=>{ if((i===0||dia(r[0])!==dia(R[i-1][0])) && i-ultimo>=gap){ marcas[i]=dia(r[0]); ultimo=i; } });
+    o.scales.x.ticks.autoSkip=false; o.scales.x.ticks.maxTicksLimit=undefined; o.scales.x.ticks.callback=function(v){ return marcas[v]??null; }; }
+  $('#d-oil').textContent=intra?'US$ por barril, hoje, a cada 5 minutos (horário de Brasília). WTI tracejado, como referência.':hor?'US$ por barril, de hora em hora. WTI tracejado, como referência.':'US$ por barril, diário. WTI tracejado, como referência.';
   $('#s-oil').textContent=fut?'Fonte: contratos futuros de 1º vencimento (Brent ICE e WTI Nymex), via Yahoo Finance, atualizados a cada hora; fechamento diário até a véspera e cotação do dia. Se essa fonte falhar, o gráfico usa o spot da EIA, que sai com alguns dias de atraso.':'Fonte: EIA (spot Brent Europa e WTI Cushing), com atraso de alguns dias úteis.';
   draw('c-oil',{type:'line', data:{labels:R.map(r=>r[0]), datasets:[line('Brent', R.map(r=>r[1]), S(1), {borderWidth:2.2}), line('WTI', R.map(r=>W[r[0]]??null), css('--text-muted'), {spanGaps:true, borderWidth:1, borderDash:[4,3], pointRadius:0})]}, options:o});
 }
