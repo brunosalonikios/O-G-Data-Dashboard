@@ -360,7 +360,12 @@ function base(opts={}){
     plugins:{
       legend:{position:'top', align:'start', labels:{color:tp, boxWidth:10, boxHeight:10, usePointStyle:true, pointStyle:'rectRounded', font:{size:12}}},
       tooltip:{backgroundColor:css('--surface-1'), titleColor:css('--text-primary'), bodyColor:css('--text-primary'), borderColor:css('--border'), borderWidth:1, padding:10, boxPadding:4, usePointStyle:true,
-        callbacks: opts.tip ? {label: opts.tip} : {}}
+        callbacks: Object.assign(opts.tip ? {label: opts.tip} : {}, (opts.stacked && !opts.semTotal) ? {footer: items => {
+          if(items.length<2) return '';
+          const hz=items[0].chart.options.indexAxis==='y';
+          const tot=items.reduce((a,it)=>a+((hz?it.parsed.x:it.parsed.y)||0),0);
+          return opts.tip ? opts.tip({dataset:{label:'Total'}, parsed:{x:tot,y:tot}, dataIndex:items[0].dataIndex}).trim() : 'Total: '+fmt(tot);
+        }} : {}), footerColor:css('--text-primary'), footerFont:{weight:'600'}}
     },
     scales:{
       x:{grid:{display:false}, ticks:{color:tp, maxRotation:0, autoSkip:true, autoSkipPadding:14, font:{size:11}}, border:{color:css('--border')}, stacked:!!opts.stacked},
@@ -383,7 +388,7 @@ function cPocosMov(){
   $('#d-pmov').textContent=`Número de poços por mês. Último dado: ${mlab(P.mes)}.`;
   $('#pkpis').innerHTML=`<div>Produzindo em ${mlab(P.mes)}<b>${fmt(u.produzindo)}</b></div><div>No mar<b>${fmt(u.mar)}</b></div><div>Pararam<b>${fmt(u.pararam)}</b></div><div>Voltaram<b>${fmt(u.voltaram)}</b></div><div>Novos<b>${fmt(u.novos)}</b></div>`;
   const ds=[{type:'bar',label:'Pararam',data:c.map(r=>-r.pararam),backgroundColor:css('--bad')},{type:'bar',label:'Voltaram',data:c.map(r=>r.voltaram),backgroundColor:S(2)},{type:'bar',label:'Novos',data:c.map(r=>r.novos),backgroundColor:S(1)}];
-  const o=base({stacked:true, zero:true, ytick:v=>fmt(Math.abs(v)), tip:c=>` ${c.dataset.label}: ${fmt(Math.abs(c.parsed.y))}`});
+  const o=base({stacked:true, semTotal:true, zero:true, ytick:v=>fmt(Math.abs(v)), tip:c=>` ${c.dataset.label}: ${fmt(Math.abs(c.parsed.y))}`});
   draw('c-pmov',{type:'bar', data:{labels:c.map(r=>mlab(r.mes)), datasets:ds}, options:o});
 }
 function tPocos(){
@@ -667,7 +672,7 @@ function tRank(){
 }
 function stackShare(id, rows, keys, unit='%'){
   const ds=keys.map(([k,c])=>({type:'line', label:k, data:rows.map(r=>(r[k]??0)*100), backgroundColor:(c?S(c):css('--neutral'))+'cc', borderColor:c?S(c):css('--neutral'), borderWidth:1, fill:true}));
-  const o=base({stacked:true, ytick:v=>fmt(v,0)+'%', tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,1)}%`});
+  const o=base({stacked:true, semTotal:true, ytick:v=>fmt(v,0)+'%', tip:c=>` ${c.dataset.label}: ${fmt(c.parsed.y,1)}%`});
   o.scales.y.max=100;
   draw(id,{type:'line', data:{labels:rows.map(r=>mlab(r.mes)), datasets:ds}, options:o});
 }
