@@ -122,7 +122,8 @@ def _raizen(get, cache: dict | None = None) -> dict:
             cy, cq = int(k[:4]), int(k[-1])
             fy = cy + 1 if cq > 1 else cy  # ano-safra termina em março
             fq = cq - 1 if cq > 1 else 4
-            vals[k] = {"tri": k, "rotulo": f"{fq}T {fy - 2001:02d}'{fy - 2000:02d}", "valor": v, "fonte": "release"}
+            vals[k] = {"tri": k, "rotulo": f"{fq}T {fy - 2001:02d}'{fy - 2000:02d}", "valor": v["valor"],
+                       "fonte": "release, EBITDA normalizado" if v["tipo"] == "norm" else "release"}
     return {"arquivo": "Planilha por Segmento " + files[-1]["refDate"][:4], "data_arquivo": files[-1].get("createdAt", "")[:10],
             "serie": [vals[k] for k in sorted(vals)]}
 
@@ -208,7 +209,8 @@ def _raizen_release(pdf: bytes):
             for line in t.split("\n"):
                 m = rx.match(line.strip())
                 if m:
-                    nums = [x for x in m.group(1).split() if re.fullmatch(r"\(?-?[\d.]+(,\d+)?\)?", x)]
+                    rest = re.sub(r"^(\(\d\)\s*)+", "", m.group(1).strip())      # chamadas de nota, ex. "(2)"
+                    nums = [x for x in rest.split() if re.fullmatch(r"\(?-?[\d.]+(,\d+)?\)?", x)]
                     if len(nums) >= 3:
                         def br(x):
                             v = float(x.strip("()").replace(".", "").replace(",", "."))
@@ -217,30 +219,72 @@ def _raizen_release(pdf: bytes):
     return None
 
 
-def _raizen_releases(get, cache: dict, max_downloads: int = 40) -> dict:
-    rel = _ipe(get, RAIZEN_CVM, lambda r: not re.search(r"ingl|english", r["Assunto"], re.I)
-               and r["Data_Referencia"][5:] in ("03-31", "06-30", "09-30", "12-31"))
-    vals, feitos, n = dict(cache.get("valores", {})), set(cache.get("releases", [])), 0
-    for d in sorted(rel, reverse=True):
-        if d in feitos or n >= max_downloads:
+def _raizen_normalizado(pdf: bytes):
+    """Margem "EBITDA Normalizado" (R$/m³) de Distribuição Brasil, publicada entre 3T 22'23 e 2025:
+    a Raízen tira efeitos de estoque, CBIOs e créditos tributários do EBITDA ajustado. Devolve
+    [trimestre, ano anterior, trimestre anterior] (None onde o release não traz)."""
+    import pdfplumber
+    tok = lambda s: [x for x in s.split() if re.fullmatch(r"\(?-?[\d.]+(,\d+)?\)?", x)]
+    def br(x):
+        v = float(x.strip("()").replace(".", "").replace(",", "."))
+        return -abs(v) if x.startswith("(") else v
+    with pdfplumber.open(io.BytesIO(pdf)) as p:
+        for pg in p.pages[:22]:
+            t = pg.extract_text() or ""
+            if "ormaliza" not in t or re.search(r"argentina", t[:300], re.I):
+                continue
+            ls = [l.strip() for l in t.split("\n")]
+            i0 = next((i for i, l in enumerate(ls) if re.match(r"^Margem \(R\$/m", l)), None)
+            if i0 is not None:
+                for l in ls[i0 + 1:]:
+                    m = re.match(r"^EBITDA Normalizado(?:/m.)?\s+(.*)$", l)
+                    if m and len(tok(m.group(1))) >= 3:
+                        n = tok(m.group(1))
+                        return [br(n[0]), br(n[1]), br(n[2])]
+            for l in ls:
+                m = re.match(r"^EBITDA Normalizado(?: \(R\$ milh.es\))?\s+(.*)$", l)
+                if m and len(tok(m.group(1))) == 4:
+                    return [br(tok(m.group(1))[2]), None, None]
+    return None
+
+
+RAIZEN_REL_CAT = "crrelatorioresultadosgruporaizendfp"
+
+
+def _raizen_releases(get, cache: dict) -> dict:
+    """Relatórios de resultados da Raízen (API do site de RI). Por trimestre civil, a prioridade é:
+    EBITDA normalizado do próprio release > normalizado dos comparativos > margem ajustada do próprio
+    release > ajustada dos comparativos. Os resultados brutos de cada release ficam em cache."""
+    y = dt.date.today().year
+    url = RAIZEN_API.format(site=RAIZEN_SITE) + f"?language=pt&categories={RAIZEN_REL_CAT}&startDate=2021-01-01&endDate={y + 2}-12-31"
+    files = json.loads(get(url).content)["categories"].get(RAIZEN_REL_CAT, [])
+    brutos = cache.setdefault("brutos", {})
+    for f in files:
+        ref = f["refDate"][:10]
+        if ref in brutos:
             continue
-        n += 1
         try:
-            res = _raizen_release(get(rel[d]["Link_Download"]).content)
+            pdf = get(f["url"]).content
+            brutos[ref] = {"aj": _raizen_release(pdf), "norm": _raizen_normalizado(pdf)}
         except Exception as e:  # noqa: BLE001
-            print(f"Raízen: release {d} falhou: {str(e)[:120]}")
-            continue
-        feitos.add(d)
-        if res:
-            q = f"{d[:4]}-T{(int(d[5:7]) - 1) // 3 + 1}"
-            vals[q] = res[0]                                    # trimestre do próprio release
-            for k, v in ((_tri_menos(q, 4), res[1]), (_tri_menos(q, 1), res[2])):
-                vals.setdefault(k, v)                           # comparativos só preenchem buracos
-        else:
-            print(f"Raízen: release {d} sem a linha de margem")
-    print(f"Raízen: {len(rel)} releases listados, {n} baixados, {len(vals)} trimestres")
-    cache["valores"], cache["releases"] = vals, sorted(feitos)
-    return vals
+            print(f"Raízen: release {ref} falhou: {str(e)[:120]}")
+    cand = {}                                      # tri -> (prioridade, ordem, valor); menor prioridade vence
+    for ref in sorted(brutos):
+        fy, fq = int(ref[:4]), (int(ref[5:7]) + 2) // 3
+        q = f"{fy - 1}-T{fq + 1}" if fq <= 3 else f"{fy}-T1"
+        for tipo, base in (("norm", 0), ("aj", 2)):
+            v = brutos[ref].get(tipo)
+            if not v:
+                continue
+            for k, (tri, x) in enumerate(((q, v[0]), (_tri_menos(q, 4), v[1]), (_tri_menos(q, 1), v[2]))):
+                if x is None:
+                    continue
+                pr = base + (0 if k == 0 else 1)
+                antigo = cand.get(tri)
+                if antigo is None or pr < antigo[0] or (pr == antigo[0] and k > 0):   # comparativo mais novo revisa
+                    cand[tri] = (pr, tipo, x)
+    print(f"Raízen: {len(files)} releases listados, {len(brutos)} lidos, {len(cand)} trimestres")
+    return {t: {"valor": x, "tipo": tipo} for t, (pr, tipo, x) in cand.items()}
 
 
 def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
