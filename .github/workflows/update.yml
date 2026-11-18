@@ -47,7 +47,7 @@ jobs:
             echo "Sem dados novos."
           else
             git commit -m "Dados atualizados $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git pull --rebase --autostash origin main || true
+            git pull --rebase -X theirs --autostash origin main || { git rebase --abort; git pull --no-rebase -X ours --no-edit origin main; }
             git push
           fi
 
