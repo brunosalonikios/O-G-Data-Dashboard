@@ -1,0 +1,26 @@
+{
+ "diesel": [
+  {
+   "fim": "2026-11-14",
+   "ini": "2026-11-08",
+   "final": 7.29,
+   "distribuicao": 2.14,
+   "biocombustivel": 0.83,
+   "estadual": 1.17,
+   "federal": 0.32,
+   "petrobras": 2.83
+  }
+ ],
+ "gasolina": [
+  {
+   "fim": "2026-11-14",
+   "ini": "2026-11-08",
+   "final": 6.48,
+   "distribuicao": 1.66,
+   "biocombustivel": 1.11,
+   "estadual": 1.57,
+   "federal": 0.06,
+   "petrobras": 2.08
+  }
+ ]
+}

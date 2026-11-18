@@ -497,17 +497,26 @@ def fetch_petrobras():
     for k in ("diesel", "gasolina"):
         if not out.get(k, {}).get("tabela"):
             raise RuntimeError(f"preço Petrobras {k} não lido")
-    # parcela Petrobras na bomba (semanal, página de formação de preços)
-    parc = {}
+    # composição do preço na bomba (semanal, página de formação de preços da Petrobras)
+    parc, comp = {}, {}
     for prod in ("diesel", "gasolina"):
         try:
             h = get(f"https://precos.petrobras.com.br/precos-{prod}").text
-            mm = re.search(r'tarifa5-numero">\s*([\d,\.]+)\s*<', h)
             per = re.search(r'telafinal-textoColeta">\s*([^<]+)<', h)
-            if mm:
-                parc[prod] = {"parcela_rs_l": num_br(mm.group(1)), "periodo": (per.group(1).strip() if per else "")}
+            fin = re.search(r'telafinal-precofinal">\s*([\d,\.]+)\s*<', h)
+            parts = {}
+            for i in range(1, 8):
+                t = re.search(rf'tarifa{i}-titulo">\s*([^<]+)<', h)
+                n = re.search(rf'tarifa{i}-numero">\s*([\d,\.]+)\s*<', h)
+                if t and n:
+                    parts[t.group(1).strip()] = num_br(n.group(1))
+            if "Parcela Petrobras" in parts:
+                parc[prod] = {"parcela_rs_l": parts["Parcela Petrobras"], "periodo": (per.group(1).strip() if per else "")}
+            if per and fin and parts:
+                comp[prod] = {"periodo": per.group(1).strip(), "final": num_br(fin.group(1)), "partes": parts}
         except Exception:  # noqa: BLE001
             pass
+    out["composicao_semana"] = comp
     out["parcela_bomba"] = parc
     return out
 
@@ -873,6 +882,28 @@ def main():
         D["downstream"] = dstream
     if arg:
         D["argentina"] = arg
+    # ---- composição do preço na bomba: série acumulada a cada semana nova
+    comp_path = ROOT / "data" / "cache" / "composicao.json"
+    hist = json.loads(comp_path.read_text()) if comp_path.exists() else {}
+    for prod, c in ((pb or {}).get("composicao_semana") or {}).items():
+        m = re.findall(r"(\d{2})/(\d{2})/(\d{4})", c["periodo"])
+        if len(m) != 2:
+            continue
+        fim = f"{m[1][2]}-{m[1][1]}-{m[1][0]}"
+        rows = {r["fim"]: r for r in hist.get(prod, [])}
+        canon = {}
+        for t, v in c["partes"].items():
+            tn = t.lower()
+            k = ("petrobras" if "petrobras" in tn else "distribuicao" if tn.startswith("distribui") else
+                 "estadual" if "estadual" in tn else "federal" if "federa" in tn else
+                 "biocombustivel" if ("biodiesel" in tn or "etanol" in tn) else None)
+            if k:
+                canon[k] = v
+        rows[fim] = {"fim": fim, "ini": f"{m[0][2]}-{m[0][1]}-{m[0][0]}", "final": c["final"], **canon}
+        hist[prod] = [rows[k] for k in sorted(rows)]
+    if hist:
+        comp_path.write_text(json.dumps(hist, ensure_ascii=False, indent=1))
+        D["composicao"] = hist
 
     # ---- paridade, defasagem e cracks
     if fred and ptax and anp_ppi:

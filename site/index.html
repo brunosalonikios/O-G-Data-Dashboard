@@ -74,7 +74,10 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 .oilstats{display:flex;flex-wrap:wrap;gap:8px 28px;margin:0 0 8px}
 .oilstats div{font-size:12px;color:var(--text-secondary)}
 .oilstats b{display:block;font-size:22px;color:var(--text-primary);font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.bar{align-items:center;margin-bottom:12px}
+.bar{align-items:center;margin:20px 0 12px}
+.margbig{display:flex;flex-wrap:wrap;gap:6px 24px;margin-bottom:6px}
+.margbig div{font-size:12px;color:var(--text-secondary)}
+.margbig b{display:block;font-size:20px;color:var(--text-primary);font-variant-numeric:tabular-nums}
 .tblwrap{overflow-x:auto;max-height:380px}
 .tbl{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
 .tbl th{font-weight:500;color:var(--text-secondary);text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface-1)}
@@ -140,6 +143,42 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
 
   <div class="tab" id="tab-downstream" hidden>
   <section class="kpis" id="kpis-down"></section>
+  <section class="grid">
+    <div class="card wide">
+      <div class="row"><div><h2>Preço Petrobras vs. paridade de importação</h2><div class="desc" id="d-par">R$ por litro, sem tributos, média semanal. Paridade calculada por nós.</div></div>
+        <div class="seg" data-for="par"><button aria-pressed="true" data-v="diesel">Diesel S10</button><button aria-pressed="false" data-v="gasolina">Gasolina A</button></div></div>
+      <div class="chart"><canvas id="c-par"></canvas></div>
+      <div class="desc" style="margin-top:12px">Defasagem: preço Petrobras ÷ paridade − 1. Negativo = Petrobras vende abaixo da paridade.</div>
+      <div class="chart short"><canvas id="c-desc"></canvas></div>
+      <div class="src">Fontes: Petrobras (Cubatão-SP, vizinho ao porto de Santos); EIA, spot no Golfo dos EUA; Banco Central (PTAX). Custos logísticos calibrados automaticamente contra a PPI semanal da ANP (Santos).</div>
+    </div>
+    <div class="card wide">
+      <div class="row"><div><h2>Crack spreads</h2><div class="desc">US$ por barril acima do Brent, média mensal.</div></div>
+        <div class="seg" data-for="crk"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
+      <div class="chart"><canvas id="c-crk"></canvas></div>
+      <div class="src">Crack USGC = produto no Golfo dos EUA × 42 − Brent (EIA). Crack Brasil implícito = preço Petrobras em US$/bbl − Brent.</div>
+    </div>
+    <div class="card">
+      <div class="row"><div><h2>Do Brent à bomba</h2><div class="desc" id="d-bomba">R$ por litro, média mensal, mesma escala.</div></div>
+        <div class="seg" data-for="bomba"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
+      <div class="chart"><canvas id="c-bomba"></canvas></div>
+      <div class="src">Brent e paridade em R$/L pela PTAX. Preço Petrobras sem tributos (Cubatão-SP). Bomba inclui tributos, margens e mistura obrigatória. Fontes: EIA, Banco Central, Petrobras, ANP.</div>
+    </div>
+    <div class="card">
+      <div class="row"><div><h2>Margens e composição do preço na bomba</h2><div class="desc" id="d-marg">R$ por litro, estimativa semanal da Petrobras.</div></div>
+        <div class="seg" data-for="marg"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
+      <div class="margbig" id="margbig"></div>
+      <div class="chart short"><canvas id="c-marg"></canvas></div>
+      <div class="chart short" id="w-margh"><canvas id="c-margh"></canvas></div>
+      <div class="src">Fonte: Petrobras, composição de preços ao consumidor (média semanal ANP). Distribuição e revenda é o resíduo: preço na bomba menos parcela Petrobras, biocombustível e tributos; no diesel inclui também o custo extra do produto importado acima do preço Petrobras. A série histórica é gravada a cada semana a partir de nov/26.</div>
+    </div>
+    <div class="card wide">
+      <h2>Demanda de combustíveis</h2><div class="desc">Vendas das distribuidoras, mil m³ por mês.</div>
+      <div class="seg" data-for="vendas"><button aria-pressed="true" data-v="mm12">Média móvel 12m</button><button aria-pressed="false" data-v="raw">Mensal</button></div>
+      <div class="chart"><canvas id="c-vendas"></canvas></div>
+      <div class="src">Fonte: ANP, vendas de derivados de petróleo e etanol.</div>
+    </div>
+  </section>
   <div class="row bar"><div class="desc" style="margin:0">Produto nos gráficos de distribuidoras:</div>
     <div class="seg" data-for="dprod" style="margin:0"><button aria-pressed="true" data-v="diesel">Diesel B</button><button aria-pressed="false" data-v="gasolina">Gasolina C</button><button aria-pressed="false" data-v="etanol">Etanol hidratado</button></div></div>
   <section class="grid">
@@ -168,32 +207,6 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
         <div class="seg" data-for="forn"><button aria-pressed="true" data-v="diesel">Diesel A</button><button aria-pressed="false" data-v="gasolina">Gasolina A</button></div></div>
       <div class="chart"><canvas id="c-forn"></canvas></div>
       <div class="src">Fonte: ANP, entregas de produtores e importadores às distribuidoras. Importadoras = tradings e importadores independentes (as importações da própria Petrobras contam como Petrobras).</div>
-    </div>
-    <div class="card">
-      <h2>Demanda de combustíveis</h2><div class="desc">Vendas das distribuidoras, mil m³ por mês.</div>
-      <div class="seg" data-for="vendas"><button aria-pressed="true" data-v="mm12">Média móvel 12m</button><button aria-pressed="false" data-v="raw">Mensal</button></div>
-      <div class="chart"><canvas id="c-vendas"></canvas></div>
-      <div class="src">Fonte: ANP, vendas de derivados de petróleo e etanol.</div>
-    </div>
-    <div class="card">
-      <div class="row"><div><h2>Do Brent à bomba</h2><div class="desc" id="d-bomba">R$ por litro, média mensal, mesma escala.</div></div>
-        <div class="seg" data-for="bomba"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
-      <div class="chart"><canvas id="c-bomba"></canvas></div>
-      <div class="src">Brent e paridade em R$/L pela PTAX. Preço Petrobras sem tributos (Cubatão-SP). Bomba inclui tributos, margens e mistura obrigatória. Fontes: EIA, Banco Central, Petrobras, ANP.</div>
-    </div>
-    <div class="card wide">
-      <div class="row"><div><h2>Preço Petrobras vs. paridade de importação</h2><div class="desc" id="d-par">R$ por litro, sem tributos, média semanal. Paridade calculada por nós.</div></div>
-        <div class="seg" data-for="par"><button aria-pressed="true" data-v="diesel">Diesel S10</button><button aria-pressed="false" data-v="gasolina">Gasolina A</button></div></div>
-      <div class="chart"><canvas id="c-par"></canvas></div>
-      <div class="desc" style="margin-top:12px">Defasagem: preço Petrobras ÷ paridade − 1. Negativo = Petrobras vende abaixo da paridade.</div>
-      <div class="chart short"><canvas id="c-desc"></canvas></div>
-      <div class="src">Fontes: Petrobras (Cubatão-SP, vizinho ao porto de Santos); EIA, spot no Golfo dos EUA; Banco Central (PTAX). Custos logísticos calibrados automaticamente contra a PPI semanal da ANP (Santos).</div>
-    </div>
-    <div class="card wide">
-      <div class="row"><div><h2>Crack spreads</h2><div class="desc">US$ por barril acima do Brent, média mensal.</div></div>
-        <div class="seg" data-for="crk"><button aria-pressed="true" data-v="diesel">Diesel</button><button aria-pressed="false" data-v="gasolina">Gasolina</button></div></div>
-      <div class="chart"><canvas id="c-crk"></canvas></div>
-      <div class="src">Crack USGC = produto no Golfo dos EUA × 42 − Brent (EIA). Crack Brasil implícito = preço Petrobras em US$/bbl − Brent.</div>
     </div>
   </section>
   </div>
@@ -263,7 +276,7 @@ const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); }
 const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
 const S = i => css('--s'+i);
 let D = null, META = null; const charts = {};
-const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', tab:'upstream'};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', marg:'diesel', tab:'upstream'};
 const PNOME = {diesel:'diesel B', gasolina:'gasolina C', etanol:'etanol hidratado'};
 
 function base(opts={}){
@@ -447,6 +460,23 @@ function cOil(){
   draw('c-oil',{type:'line', data:{labels:R.map(r=>r[0]), datasets:[line('Brent', R.map(r=>r[1]), S(1)), line('WTI', R.map(r=>W[r[0]]??null), S(2), {spanGaps:true})]}, options:o});
 }
 
+// ---------- margens / composição
+function cMarg(){
+  const H=D.composicao?.[state.marg]; if(!H?.length) return;
+  const L=H[H.length-1], dz=state.marg==='diesel';
+  const parts=[['petrobras','Parcela Petrobras',1],[ 'biocombustivel', dz?'Biodiesel':'Etanol anidro',3],['federal','Impostos federais',7],['estadual','ICMS',5],['distribuicao','Distribuição e revenda',4]];
+  $('#d-marg').textContent=`R$ por litro, ${dz?'diesel S10':'gasolina C'} na bomba, semana de ${dlab(L.ini)} a ${dlab(L.fim)}.`;
+  $('#margbig').innerHTML=`<div>Preço na bomba<b>R$ ${fmt(L.final,2)}/L</b></div><div>Distribuição e revenda<b>R$ ${fmt(L.distribuicao*1000,0)}/m³</b></div><div>Parcela Petrobras<b>${fmt(L.petrobras/L.final*100,0)}% do preço</b></div><div>Tributos<b>R$ ${fmt(L.federal+L.estadual,2)}/L</b></div>`;
+  const o=base({stacked:true, tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.x,2)}/L (${fmt(c.parsed.x/L.final*100,0)}%)`});
+  o.indexAxis='y'; o.scales.x.grid={color:css('--grid')}; o.scales.y.grid={display:false}; o.scales.x.max=Math.ceil(L.final);
+  o.scales.x.ticks.callback=v=>'R$ '+fmt(v,0); o.scales.y.ticks.callback=()=>'';
+  draw('c-marg',{type:'bar', data:{labels:[dz?'Diesel S10':'Gasolina C'], datasets:parts.map(([k,l,c])=>({label:l, data:[L[k]], backgroundColor:S(c), borderColor:css('--surface-1'), borderWidth:{right:2}, borderSkipped:false, borderRadius:0, barThickness:34}))}, options:o});
+  const w=$('#w-margh');
+  if(H.length<2){ w.style.height='auto'; w.innerHTML='<div class="desc" style="margin:8px 0 0">A série de margem semanal começa a aparecer aqui a partir da próxima semana (a Petrobras só publica a semana corrente; o painel grava cada uma).</div>'; return; }
+  if(!$('#c-margh')){ w.style.height=''; w.innerHTML='<canvas id="c-margh"></canvas>'; }
+  draw('c-margh',{type:'line', data:{labels:H.map(r=>dlab(r.fim)), datasets:[line('Distribuição e revenda', H.map(r=>r.distribuicao*1000), S(4)), line('Parcela Petrobras', H.map(r=>r.petrobras*1000), S(1))]}, options:base({zero:false, ytick:v=>'R$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.y,0)}/m³`})});
+}
+
 // ---------- downstream: distribuidoras
 const DCOR = {'Vibra':1,'Ipiranga':2,'Raízen':3,'Atem':4,'ALE':5,'Sabbá':6,'Demais':null};
 function cShare(){
@@ -569,7 +599,7 @@ function metodo(){
 }
 const TABS = {
   upstream:[kpisUp, cProd, cOp, cCampos, cCom],
-  downstream:[kpisDown, cShare, tRank, cBig3, cCanais, cForn, cVendas, cBomba, cPar, cCrk],
+  downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cVendas, cShare, tRank, cBig3, cCanais, cForn],
   argentina:[kpisAr, cArProd, cArRank, cArGas, cArShare, cArVol, cArPoc],
 };
 function run(f){ try{ f(); }catch(e){ console.error(f.name, e); } }
