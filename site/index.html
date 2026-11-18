@@ -247,6 +247,19 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <div class="chart"><canvas id="c-forn"></canvas></div>
       <div class="src">Fonte: ANP, entregas de produtores e importadores às distribuidoras. Importadoras = tradings e importadores independentes (as importações da própria Petrobras contam como Petrobras).</div>
     </div>
+    <div class="sect">Carros elétricos e híbridos</div>
+    <div class="card wide">
+      <div class="row"><div><h2>Emplacamentos de elétricos e híbridos</h2><div class="desc" id="d-ev">Automóveis e comerciais leves novos, por mês.</div></div>
+        <div class="seg" data-for="ev"><button aria-pressed="true" data-v="un">Unidades</button><button aria-pressed="false" data-v="pct">% dos leves</button></div></div>
+      <div class="margbig" id="evkpis"></div>
+      <div class="chart"><canvas id="c-ev"></canvas></div>
+      <div class="src">Fonte: Anfavea, Carta da Anfavea (Renavam), emplacamento de automóveis e comerciais leves por combustível, nacionais e importados. Até 2021 a Anfavea publicava híbridos e elétricos juntos; em 2022, híbridos e híbridos plug-in juntos.</div>
+    </div>
+    <div class="card wide">
+      <h2>Mix de combustível dos leves novos</h2><div class="desc" id="d-evmix">Participação nos emplacamentos, soma de 12 meses.</div>
+      <div class="chart"><canvas id="c-evmix"></canvas></div>
+      <div class="src">Fonte: Anfavea. Quanto da frota nova deixa de depender só de gasolina e etanol: elétricos não consomem combustível líquido, e híbridos consomem menos.</div>
+    </div>
   </section>
   </div>
 
@@ -313,6 +326,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <li><b>Defasagem</b> = preço Petrobras sem tributos ÷ PPI − 1. Não usa a defasagem da ABICOM. Quando há subvenção federal ao diesel, mostramos o preço de tabela e o preço líquido do desconto.</li>
       <li><b>Pré-sal</b>: participação pela classificação da ANP por poço (arquivos até 2025) e, nos arquivos mais novos sem essa coluna, pela zona produtora (Barra Velha, Itapema, Macabu, Coqueiros, Piçarras).</li>
       <li><b>Operador</b>: mapa campo → operador do último arquivo da ANP com essa coluna (dez/2023), agrupando empresas do mesmo grupo; campos que entraram em produção depois aparecem como "Não mapeado", exceto Bacalhau (Equinor).</li>
+      <li><b>Elétricos e híbridos</b>: tabela de emplacamentos de leves por combustível da Carta da Anfavea (PDF mensal); a carta mais nova traz o ano corrente e o anterior, e as cartas de novembro de anos passados completam o histórico desde 2018. A Anfavea não publica mais as séries em Excel.</li>
       <li><b>Poço a poço</b>: arquivo mensal da ANP de produção por poço e zona, somando as zonas de cada poço; operador pelo mapa campo → operador. Um poço "parado" é o que não aparece com produção no último mês publicado (a ANP publica com cerca de dois meses de defasagem).</li>
       <li><b>Distribuidoras</b>: vendas por agente do painel de combustíveis líquidos da ANP, com empresas do mesmo grupo somadas; o último mês é descartado se vier claramente incompleto.</li>
     <li><b>Argentina</b>: o portal da Secretaria de Energia não responde fora da Argentina. A parte de upstream usa a produção mensal por poço da Secretaria redistribuída pelo projeto PetroDB (atualizada quando sai o arquivo de cada ano; hoje vai até dez/2025); Vaca Muerta = formação produtora Vaca Muerta; operador = operador do poço em cada mês. Gás, poços terminados e vendas por bandeira vêm das séries mensais do Ministério da Economia (datos.gob.ar), que são mais recentes mas cobrem só as maiores empresas. Reservas e preços na bomba ainda não têm fonte acessível.</li>
@@ -333,7 +347,7 @@ const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); }
 const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
 const S = i => css('--s'+i);
 let D = null, META = null; const charts = {};
-const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', pvar:'quedas', tab:'upstream'};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', pvar:'quedas', ev:'un', tab:'upstream'};
 const PNOME = {diesel:'diesel B', gasolina:'gasolina C', etanol:'etanol hidratado'};
 
 function base(opts={}){
@@ -389,6 +403,33 @@ function tPocos(){
   $('#d-pvar').textContent=`Petróleo, bbl/d, ${mlab(P.mes_anterior)} para ${mlab(P.mes)}, poços que produziram nos dois meses.`;
   $('#t-pvar').innerHTML=`<thead><tr><th class="l">Poço</th><th class="l">Campo</th><th class="l">Operador</th><th>${mlab(P.mes_anterior)}</th><th>${mlab(P.mes)}</th><th>Diferença</th></tr></thead><tbody>`+
     L.map(r=>`<tr>${pocoCel(r)}<td>${fmt(r.oil_ant)}</td><td>${fmt(r.oil)}</td><td><span class="${r.delta>=0?'up':'down'}">${r.delta>0?'+':''}${fmt(r.delta)}</span></td></tr>`).join('')+'</tbody>';
+}
+
+
+// ---------- elétricos e híbridos (Anfavea)
+const EVK=[['eletrico','Elétrico (BEV)',1],['phev','Híbrido plug-in',2],['hibrido','Híbrido',3],['hib_ele','Híbrido e elétrico (até 2021)',5]];
+function cEv(){
+  const E=D.ev; if(!E) return;
+  const R=E.serie.filter(r=>r.mes>='2019-01'), u=R[R.length-1];
+  const ele=r=>(r.eletrico||0)+(r.phev||0)+(r.hibrido||0)+(r.hib_ele||0);
+  const ano=u.mes.slice(0,4), ytd=R.filter(r=>r.mes.slice(0,4)===ano), ytd0=R.filter(r=>r.mes.slice(0,4)===String(+ano-1)&&r.mes.slice(5)<=u.mes.slice(5));
+  const sbev=a=>a.reduce((s,r)=>s+(r.eletrico||0),0);
+  $('#evkpis').innerHTML=`<div>Elétricos em ${mlab(u.mes)}<b>${fmt(u.eletrico)}</b></div><div>Eletrificados (% dos leves)<b>${fmt(ele(u)/u.total*100,1)}%</b></div><div>Elétricos no ano<b>${fmt(sbev(ytd))}</b></div><div>vs. mesmo período de ${+ano-1}<b class="${sbev(ytd)>=sbev(ytd0)?'up':'down'}">${pctf(sbev(ytd)/sbev(ytd0)-1,0)}</b></div>`;
+  const pct=state.ev==='pct';
+  $('#d-ev').textContent=pct?'Participação nos emplacamentos de automóveis e comerciais leves novos, por mês.':'Automóveis e comerciais leves novos, unidades por mês.';
+  const ds=EVK.filter(([k])=>R.some(r=>r[k])).map(([k,l,c])=>({type:'bar',label:l,data:R.map(r=>r[k]==null?null:(pct?r[k]/r.total*100:r[k])),backgroundColor:S(c)}));
+  draw('c-ev',{type:'bar',data:{labels:R.map(r=>mlab(r.mes)),datasets:ds},options:base({stacked:true, ytick:v=>pct?fmt(v,0)+'%':fmt(v), tip:c=>` ${c.dataset.label}: ${pct?fmt(c.parsed.y,1)+'%':fmt(c.parsed.y)}`})});
+}
+function cEvMix(){
+  const E=D.ev; if(!E) return;
+  const S12=[]; const s=E.serie;
+  for(let i=11;i<s.length;i++){ const w=s.slice(i-11,i+1); const o={mes:s[i].mes}; const t=w.reduce((a,r)=>a+r.total,0);
+    for(const k of ['flex','gasolina','diesel','eletrico','phev','hibrido','hib_ele','etanol']) o[k]=w.reduce((a,r)=>a+(r[k]||0),0)/t;
+    o.eletrificados=o.eletrico+o.phev+o.hibrido+o.hib_ele; S12.push(o); }
+  const R=S12.filter(r=>r.mes>='2019-12');
+  $('#d-evmix').textContent=`Participação nos emplacamentos de leves, soma de 12 meses até ${mlab(R[R.length-1].mes)}.`;
+  const rows=R.map(o=>({mes:o.mes,'Eletrificados':o.eletrificados,'Diesel':o.diesel,'Gasolina e etanol':o.gasolina+o.etanol,'Flex':o.flex}));
+  stackShare('c-evmix', rows, [['Eletrificados',1],['Diesel',4],['Gasolina e etanol',6],['Flex',null]]);
 }
 
 // ---------- KPIs
@@ -721,7 +762,7 @@ function stamp(){
   const f=x=>x.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
   const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok).map(([k])=>k);
   el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte com falha nesta rodada (mantido o último dado): ${bad.join(', ')}</span>`:''}`;
-  const names={anp_distribuidoras:'ANP vendas por distribuidora',anp_pocos:'ANP poço a poço',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  const names={anp_distribuidoras:'ANP vendas por distribuidora',anp_pocos:'ANP poço a poço',anfavea_ev:'Anfavea (elétricos)',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
   $('#fontes').innerHTML='<b>Situação das fontes na última rodada:</b> '+Object.entries(META.fontes||{}).map(([k,v])=>`${names[k]||k} ${v.ok?'✓':'✗'}`).join(' · ');
 }
 
@@ -733,7 +774,7 @@ function metodo(){
 }
 const TABS = {
   upstream:[kpisUp, cProd, cOp, cCampos, cCom, cPocosMov, tPocos],
-  downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cEbitda, cVendas, cShare, tRank, cBig3, cCanais, cForn],
+  downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cEbitda, cVendas, cShare, tRank, cBig3, cCanais, cForn, cEv, cEvMix],
   argentina:[kpisAr, cArVM, cArVMOp, cArRank, cArProdV, cArNovos, cArPoc, cArGas, cArShare, cArVol],
 };
 function run(f){ try{ f(); }catch(e){ console.error(f.name, e); } }

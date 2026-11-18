@@ -840,6 +840,20 @@ def fetch_pocos_br(opmap):
     return cache_json(CACHE / "pocos_br.json", 12, build)
 
 
+@section("anfavea_ev")
+def fetch_ev():
+    """Emplacamentos de leves por combustível (Carta da Anfavea). Recalcula a cada 12 h."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import ev_brasil
+    cp = CACHE / "anfavea_cartas.json"
+    def build():
+        c = json.loads(cp.read_text()) if cp.exists() else {}
+        out = ev_brasil.build(lambda u: get(u, timeout=120), c)
+        cp.write_text(json.dumps(c, ensure_ascii=False, indent=0))
+        return out
+    return cache_json(CACHE / "ev.json", 12, build)
+
+
 def main():
     prev = json.loads(OUT.read_text()) if OUT.exists() else {}
 
@@ -858,6 +872,7 @@ def main():
     ri = fetch_ri_distribuidoras()
     argp = fetch_argentina_pozos()
     pocos = fetch_pocos_br(opmap)
+    ev = fetch_ev()
 
     D = dict(prev)  # mantém blocos anteriores se algo falhar
     D["gerado_em"] = prev.get("gerado_em")
@@ -957,6 +972,8 @@ def main():
         D.setdefault("argentina", {})["pozos"] = argp
     if pocos:
         D["pocos_br"] = pocos
+    if ev:
+        D["ev"] = ev
     # ---- composição do preço na bomba: série acumulada a cada semana nova
     comp_path = ROOT / "data" / "cache" / "composicao.json"
     hist = json.loads(comp_path.read_text()) if comp_path.exists() else {}
