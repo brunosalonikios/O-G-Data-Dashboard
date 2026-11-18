@@ -102,7 +102,7 @@ RAIZEN_SITE = "e24e1732-fe1c-4eaf-9a28-ed09ccc472b1"
 RAIZEN_API = "https://api.solutions-ir.com/v2/files/{site}/period"
 
 
-def _raizen(get) -> dict:
+def _raizen(get, cache: dict | None = None) -> dict:
     """Raízen: "Planilha por Segmento" de cada ano-safra (abr-mar). Cada arquivo traz poucos
     trimestres, então juntamos todos os arquivos listados. 1T de 26/27 = abr-jun/2026."""
     y = dt.date.today().year
@@ -116,7 +116,13 @@ def _raizen(get) -> dict:
         for r in _serie(get(f["url"]).content, r"margem ebitda ajustad.*r\$/m", r"distribui.*br|combust.*br"):
             q, yy = int(r["rotulo"][0]), 2000 + int(r["rotulo"][2:])
             cal_y, cal_q = (yy - 1, q + 1) if q <= 3 else (yy, 1)
-            vals[f"{cal_y}-T{cal_q}"] = {"tri": f"{cal_y}-T{cal_q}", "rotulo": f"{q}T{r['rotulo'][2:]} (safra)", "valor": r["valor"]}
+            vals[f"{cal_y}-T{cal_q}"] = {"tri": f"{cal_y}-T{cal_q}", "rotulo": f"{q}T {yy - 2001:02d}'{yy - 2000:02d}", "valor": r["valor"], "fonte": "planilha"}
+    if cache is not None:                 # releases (CVM) prevalecem sobre a planilha
+        for k, v in _raizen_releases(get, cache).items():
+            cy, cq = int(k[:4]), int(k[-1])
+            fy = cy + 1 if cq > 1 else cy  # ano-safra termina em março
+            fq = cq - 1 if cq > 1 else 4
+            vals[k] = {"tri": k, "rotulo": f"{fq}T {fy - 2001:02d}'{fy - 2000:02d}", "valor": v, "fonte": "release"}
     return {"arquivo": "Planilha por Segmento " + files[-1]["refDate"][:4], "data_arquivo": files[-1].get("createdAt", "")[:10],
             "serie": [vals[k] for k in sorted(vals)]}
 
@@ -158,6 +164,83 @@ def _ipiranga_release(pdf: bytes):
             if vol and eb and len(eb) == 3:
                 return {q: round(_n(e) * 1000 / _n(v), 1) for q, e, v in zip(tri, eb, vol.groups()) if _n(v) > 0}, False
     return None
+
+
+def _ipe(get, codigo: str, aceita=lambda r: True) -> dict:
+    """Releases (Tipo Press-release) de uma companhia nos dados abertos IPE da CVM: {Data_Referencia: linha}."""
+    import csv
+    import zipfile
+    rel = {}
+    for ano in range(2019, dt.date.today().year + 1):
+        try:
+            z = zipfile.ZipFile(io.BytesIO(get(CVM_IPE.format(ano=ano)).content))
+        except Exception as e:  # noqa: BLE001
+            print(f"IPE {ano} falhou: {e}")
+            continue
+        for name in z.namelist():
+            for r in csv.DictReader(io.StringIO(z.read(name).decode("latin1")), delimiter=";"):
+                if r["Codigo_CVM"] == codigo and r["Tipo"] == "Press-release" and aceita(r):
+                    d = r["Data_Referencia"]
+                    if d not in rel or int(r["Versao"]) > int(rel[d]["Versao"]):
+                        rel[d] = r
+    return rel
+
+
+RAIZEN_CVM = "25917"
+
+
+def _tri_menos(q: str, n: int) -> str:
+    y, t = int(q[:4]), int(q[-1])
+    k = y * 4 + t - 1 - n
+    return f"{k // 4}-T{k % 4 + 1}"
+
+
+def _raizen_release(pdf: bytes):
+    """Tabela de Distribuição (Brasil) do relatório de resultados: margem EBITDA ajustada (R$/m³) do
+    trimestre, do mesmo trimestre do ano anterior e do trimestre anterior."""
+    import pdfplumber
+    rx = re.compile(r"^(?:Margem )?EBITDA Ajustad[oa]\s*\(R\$/m.\)\s+(.*)$", re.I)
+    with pdfplumber.open(io.BytesIO(pdf)) as p:
+        for pg in p.pages[:20]:
+            t = pg.extract_text() or ""
+            if not re.search(r"distribui|mobilidade", t, re.I) or re.search(r"^\s*Argentina", t[:200], re.I | re.M):
+                continue
+            for line in t.split("\n"):
+                m = rx.match(line.strip())
+                if m:
+                    nums = [x for x in m.group(1).split() if re.fullmatch(r"\(?-?[\d.]+(,\d+)?\)?", x)]
+                    if len(nums) >= 3:
+                        def br(x):
+                            v = float(x.strip("()").replace(".", "").replace(",", "."))
+                            return -abs(v) if x.startswith("(") else v
+                        return [br(x) for x in nums[:3]]
+    return None
+
+
+def _raizen_releases(get, cache: dict, max_downloads: int = 40) -> dict:
+    rel = _ipe(get, RAIZEN_CVM, lambda r: not re.search(r"ingl|english", r["Assunto"], re.I)
+               and r["Data_Referencia"][5:] in ("03-31", "06-30", "09-30", "12-31"))
+    vals, feitos, n = dict(cache.get("valores", {})), set(cache.get("releases", [])), 0
+    for d in sorted(rel, reverse=True):
+        if d in feitos or n >= max_downloads:
+            continue
+        n += 1
+        try:
+            res = _raizen_release(get(rel[d]["Link_Download"]).content)
+        except Exception as e:  # noqa: BLE001
+            print(f"Raízen: release {d} falhou: {str(e)[:120]}")
+            continue
+        feitos.add(d)
+        if res:
+            q = f"{d[:4]}-T{(int(d[5:7]) - 1) // 3 + 1}"
+            vals[q] = res[0]                                    # trimestre do próprio release
+            for k, v in ((_tri_menos(q, 4), res[1]), (_tri_menos(q, 1), res[2])):
+                vals.setdefault(k, v)                           # comparativos só preenchem buracos
+        else:
+            print(f"Raízen: release {d} sem a linha de margem")
+    print(f"Raízen: {len(rel)} releases listados, {n} baixados, {len(vals)} trimestres")
+    cache["valores"], cache["releases"] = vals, sorted(feitos)
+    return vals
 
 
 def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
@@ -208,7 +291,7 @@ def _ipiranga(get, cache: dict, max_downloads=None) -> dict:
     return {"arquivo": "releases de resultados da Ultrapar (CVM)", "data_arquivo": max(feitos) if feitos else "", "serie": serie}
 
 
-def build(get, post, cache_ipiranga: dict | None = None) -> dict:
+def build(get, post, cache_ipiranga: dict | None = None, cache_raizen: dict | None = None) -> dict:
     out = {}
     if cache_ipiranga is not None:
         try:
@@ -216,7 +299,7 @@ def build(get, post, cache_ipiranga: dict | None = None) -> dict:
         except Exception as e:  # noqa: BLE001
             print("Ipiranga EBITDA/m³ falhou:", e)
     try:
-        out["Raízen"] = _raizen(get)
+        out["Raízen"] = _raizen(get, cache_raizen)
     except Exception as e:  # noqa: BLE001  (uma empresa falhar não derruba as outras)
         print("Raízen EBITDA/m³ falhou:", e)
     out["Vibra"] = _vibra(get, post)

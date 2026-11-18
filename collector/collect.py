@@ -638,8 +638,11 @@ def fetch_ri_distribuidoras():
 
     def build():
         ip = json.loads(ip_path.read_text()) if ip_path.exists() else {}
-        out = md.build(lambda u: get(u, timeout=180), post, ip)
+        rz_path = CACHE / "raizen_releases.json"
+        rz = json.loads(rz_path.read_text()) if rz_path.exists() else {}
+        out = md.build(lambda u: get(u, timeout=180), post, ip, rz)
         ip_path.write_text(json.dumps(ip, ensure_ascii=False, indent=1))
+        rz_path.write_text(json.dumps(rz, ensure_ascii=False, indent=1))
         return out
     cp = CACHE / "ri_distribuidoras.json"
     try:   # sem Ipiranga no cache: tenta de novo nesta rodada em vez de esperar 12 h
