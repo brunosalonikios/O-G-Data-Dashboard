@@ -16,6 +16,7 @@ from pathlib import Path
 
 MESES = 37            # 36 meses de série + 1 para saber quem é novo no primeiro mês mostrado
 BBL = 6.28981
+EMPRESAS = ["Petrobras", "Brava Energia", "PetroReconcavo", "PRIO"]
 MIN_PICO = 300        # bbl/d de óleo equivalente: corte para a lista de poços parados
 
 
@@ -72,6 +73,12 @@ def build(get, by_month: dict, cache_dir: Path, operador) -> dict:
         if f.name[:7] not in meses:
             f.unlink()
     meses = [m for m in meses if m in dados]
+    # Nos arquivos da ANP até mai/25 a coluna "Petróleo (m³/d)" vem dividida pelos dias do mês (o gás
+    # não). Detectamos pelo total nacional (bem abaixo de 1 milhão de bbl/d) e corrigimos.
+    for m in meses:
+        if sum(v[0] for v in dados[m].values()) < 1e6:
+            dias = calendar.monthrange(int(m[:4]), int(m[5:]))[1]
+            dados[m] = {k: [round(v[0] * dias, 1), *v[1:]] for k, v in dados[m].items()}
     # descarta mês final claramente incompleto
     if len(meses) > 2 and len(dados[meses[-1]]) < 0.7 * len(dados[meses[-2]]):
         meses = meses[:-1]
@@ -153,11 +160,20 @@ def build(get, by_month: dict, cache_dir: Path, operador) -> dict:
         por_op[r["operador"]]["voltaram"] += 1
     for r in novos:
         por_op[r["operador"]]["novos"] += 1
+    # 6) produção operada (100% do campo) por empresa, mês a mês, para o gráfico trimestral
+    por_empresa = {}
+    for emp in EMPRESAS:
+        ks = [k for k in meta if op[k] == emp]
+        por_empresa[emp] = {
+            "oil": [round(sum(dados[m][k][0] for k in ks if k in dados[m])) for m in meses],
+            "gas": [round(sum(dados[m][k][1] for k in ks if k in dados[m]), 1) for m in meses],
+        }
     ops = sorted(({"operador": k, **v} for k, v in por_op.items()), key=lambda r: -r["produzindo"])
     return {
         "mes": ult, "mes_anterior": ant, "serie_meses": serie_m,
         "contagem": contagem[12:],   # nos primeiros meses da janela "novo" ainda não tem histórico suficiente
         "parados": parados[:40], "voltaram": voltaram[:20], "novos": novos[:20],
         "maiores": maiores, "quedas": quedas, "altas": altas, "por_operador": ops[:15],
+        "empresas": {"meses": meses, "dados": por_empresa},
         "dias_mes": calendar.monthrange(int(ult[:4]), int(ult[5:]))[1],
     }

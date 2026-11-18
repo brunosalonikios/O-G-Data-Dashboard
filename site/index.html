@@ -145,6 +145,15 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <div class="chart"><canvas id="c-com"></canvas></div>
       <div class="src">Fonte: Comex Stat (MDIC), NCM 2709 (petróleo bruto) e 2710 (derivados). Barris estimados pelo peso com densidade de 0,87.</div>
     </div>
+    <div class="sect">Produção por empresa</div>
+    <div class="card wide">
+      <div class="row"><div><h2>Produção trimestral por empresa, mês a mês</h2><div class="desc" id="d-emp">Média diária de cada mês, agrupada por trimestre.</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" data-for="emp"><button aria-pressed="true" data-v="Petrobras">Petrobras</button><button aria-pressed="false" data-v="Brava Energia">Brava</button><button aria-pressed="false" data-v="PetroReconcavo">PetroReconcavo</button><button aria-pressed="false" data-v="PRIO">PRIO</button></div>
+        <div class="seg" data-for="empm"><button aria-pressed="true" data-v="boe">Óleo equivalente</button><button aria-pressed="false" data-v="oil">Petróleo</button><button aria-pressed="false" data-v="gas">Gás</button></div></div></div>
+      <div class="margbig" id="empkpis"></div>
+      <div class="chart"><canvas id="c-emp"></canvas></div>
+      <div class="src">Fonte: ANP, produção por poço e zona (mensal), somada por campo operado. É a produção operada, 100% dos campos em que a empresa é operadora (não a parcela da empresa nem campos em que ela é só sócia), por isso difere dos números de produção própria dos releases. A série inteira usa o operador atual de cada campo: um campo comprado aparece em toda a história da empresa (base comparável). Até mai/25 o arquivo da ANP traz o petróleo dividido pelos dias do mês; corrigimos. Óleo equivalente: 1 mil m³ de gás = 1 m³ de óleo. A ANP publica por poço só dados mensais; não há série diária por poço nos dados abertos.</div>
+    </div>
     <div class="sect">Acompanhamento por poço</div>
     <div class="card wide">
       <h2>Poços que pararam, voltaram e entraram em produção</h2><div class="desc" id="d-pmov">Número de poços por mês.</div>
@@ -325,6 +334,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
     <div id="metodo"></div>
     <ul>
       <li><b>Paridade de importação (PPI)</b> = (preço spot no Golfo dos EUA em US$/galão ÷ 3,785 + <i>k</i>) × PTAX. O termo <i>k</i> (frete, seguro, perdas, custos portuários, AFRMM e armazenagem, em US$/litro) é recalibrado sozinho toda semana: mediana das últimas <span id="calw">4</span> semanas da diferença entre a PPI oficial da ANP para Santos e o preço USGC convertido. A PPI da ANP serve só para essa calibração; o resultado exibido é o nosso cálculo diário.</li>
+      <li><b>Paridade de exportação (PPE)</b>, só como referência = PPI − 2 × <i>k</i> do diesel × PTAX: o que um exportador receberia vendendo o produto lá fora, ou seja, a cotação internacional menos o frete e os custos de levar o produto daqui para lá. Usamos o <i>k</i> do diesel nos dois produtos porque o da gasolina também absorve diferenças de especificação. Na prática, a PPI é o teto e a PPE o piso do preço doméstico.</li>
       <li><b>Defasagem</b> = preço Petrobras sem tributos ÷ PPI − 1. Não usa a defasagem da ABICOM. Quando há subvenção federal ao diesel, mostramos o preço de tabela e o preço líquido do desconto.</li>
       <li><b>Pré-sal</b>: participação pela classificação da ANP por poço (arquivos até 2025) e, nos arquivos mais novos sem essa coluna, pela zona produtora (Barra Velha, Itapema, Macabu, Coqueiros, Piçarras).</li>
       <li><b>Operador</b>: mapa campo → operador do último arquivo da ANP com essa coluna (dez/2023), agrupando empresas do mesmo grupo; campos que entraram em produção depois aparecem como "Não mapeado", exceto Bacalhau (Equinor).</li>
@@ -349,7 +359,7 @@ const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); }
 const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
 const S = i => css('--s'+i);
 let D = null, META = null; const charts = {};
-const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', pvar:'quedas', ev:'un', tab:'upstream'};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', pvar:'quedas', ev:'un', emp:'Petrobras', empm:'boe', tab:'upstream'};
 const PNOME = {diesel:'diesel B', gasolina:'gasolina C', etanol:'etanol hidratado'};
 
 function base(opts={}){
@@ -377,6 +387,32 @@ function base(opts={}){
 function draw(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart(document.getElementById(id), cfg); }
 const line = (label, data, color, extra={}) => ({type:'line', label, data, borderColor:color, backgroundColor:color, ...extra});
 
+
+// ---------- produção por empresa (trimestral, mês a mês)
+function cEmp(){
+  const E=D.pocos_br?.empresas; if(!E) return;
+  const emp=state.emp, mt=state.empm, d=E.dados[emp]; if(!d) return;
+  const v=E.meses.map((m,i)=>mt==='oil'?d.oil[i]/1000:mt==='gas'?d.gas[i]/1000:(d.oil[i]+d.gas[i]*6.28981)/1000);
+  const un=mt==='gas'?'milhões m³/d':'mil bbl/d', dec=mt==='gas'?1:1;
+  const Q={};  // "2026-3" -> [v1,v2,v3]
+  E.meses.forEach((m,i)=>{ const y=+m.slice(0,4), mo=+m.slice(5,7), q=Math.ceil(mo/3); const k=`${y}-${q}`; (Q[k]=Q[k]||{y,q,v:[null,null,null],m:[null,null,null]}); Q[k].v[(mo-1)%3]=v[i]; Q[k].m[(mo-1)%3]=m; });
+  let qs=Object.values(Q).sort((a,b)=>a.y-b.y||a.q-b.q);
+  if(qs.length && qs[0].v.some(x=>x==null)) qs=qs.slice(1);       // primeiro tri incompleto
+  const L=qs.map(t=>`${t.q}T${String(t.y).slice(2)}`);
+  const avg=t=>{const a=t.v.filter(x=>x!=null); return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;};
+  const cor=S(1);
+  const ds=[0,1,2].map(j=>({type:'bar', label:`${j+1}º mês do tri`, data:qs.map(t=>t.v[j]), backgroundColor:cor+['59','99','ff'][j], barPercentage:.95, categoryPercentage:.8, borderRadius:2}));
+  ds.push({type:'line', label:'Média do tri', data:qs.map(avg), showLine:false, borderColor:css('--text-primary'), backgroundColor:css('--text-primary'), pointStyle:'line', pointRadius:16, pointBorderWidth:2.5, pointHoverRadius:16});
+  const o=base({zero:true, ytick:v=>fmt(v,0), tip:c=>{ const t=qs[c.dataIndex]; if(c.dataset.type==='line') return ` Média do tri${t.v.some(x=>x==null)?' (parcial)':''}: ${fmt(c.parsed.y,dec)} ${un}`; const m=t.m[c.datasetIndex]; return m?` ${mlab(m)}: ${fmt(c.parsed.y,dec)} ${un}`:''; }});
+  o.scales.y.title={display:true, text:un, color:css('--text-secondary'), font:{size:11}};
+  draw('c-emp',{type:'bar', data:{labels:L, datasets:ds}, options:o});
+  const full=qs.filter(t=>t.v.every(x=>x!=null)), u=full[full.length-1], a=full[full.length-2], ya=full.find(t=>t.y===u.y-1&&t.q===u.q);
+  const pc=(x,y)=>x!=null&&y?pctf(x/y-1):'–', lab=t=>`${t.q}T${String(t.y).slice(2)}`;
+  const last=E.meses[E.meses.length-1], lv=v[v.length-1], pv=v[v.length-2];
+  $('#empkpis').innerHTML=`<div>Média ${lab(u)}<b>${fmt(avg(u),dec)}</b></div><div>vs. ${lab(a)}<b>${pc(avg(u),avg(a))}</b></div><div>vs. ${ya?lab(ya):'ano anterior'}<b>${ya?pc(avg(u),avg(ya)):'–'}</b></div><div>${mlab(last)}<b>${fmt(lv,dec)}</b></div><div>vs. mês anterior<b>${pc(lv,pv)}</b></div>`;
+  const nome=emp==='Brava Energia'?'Brava':emp;
+  $('#d-emp').textContent=`${nome}: produção operada, ${mt==='oil'?'petróleo':mt==='gas'?'gás natural':'óleo equivalente'} em ${un}. Cada barra é a média diária de um mês; o traço é a média do trimestre. Último dado: ${mlab(last)}.`;
+}
 
 // ---------- poço a poço (Brasil)
 function spark(v){ const w=90,h=20,mx=Math.max(1,...v); const pts=v.map((x,i)=>`${(i*(w/(v.length-1))).toFixed(1)},${(h-1-(x/mx)*(h-2)).toFixed(1)}`).join(' ');
@@ -558,6 +594,7 @@ function cPar(){
   const ds=[line('Paridade de importação (nosso cálculo)', W.map(r=>r['ppi_'+p]), S(2)),
             line('Petrobras, preço de tabela', W.map(r=>r['pb_'+p]), S(1), {stepped:false})];
   if(hasLiq) ds.push(line('Petrobras, líquido da subvenção', W.map(r=>r['pbliq_'+p]), S(3)));
+  if(W.some(r=>r['ppe_'+p]!=null)) ds.push(line('Paridade de exportação (referência)', W.map(r=>r['ppe_'+p]??null), S(4), {borderWidth:1.5, borderDash:[6,4]}));
   ds.push(line('PPI ANP (referência de calibração)', W.map(r=>r['anp_ppi_'+p]??null), css('--neutral'), {borderWidth:1, borderDash:[4,3], spanGaps:true}));
   draw('c-par',{type:'line', data:{labels:L, datasets:ds}, options:base({zero:false, ytick:v=>'R$ '+fmt(v,2), tip:c=>` ${c.dataset.label}: R$ ${fmt(c.parsed.y,3)}/L`})});
   const dd=[{label:'Defasagem (tabela)', data:W.map(r=>r['desc_'+p]*100), backgroundColor:W.map(r=>r['desc_'+p]<0?css('--bad'):css('--good')), barPercentage:1, categoryPercentage:.9, borderRadius:0}];
@@ -804,7 +841,7 @@ function metodo(){
   if(M.diesel?.janela_semanas) $('#calw').textContent=M.diesel.janela_semanas;
 }
 const TABS = {
-  upstream:[kpisUp, cProd, cOp, cCampos, cCom, cPocosMov, tPocos],
+  upstream:[kpisUp, cProd, cOp, cCampos, cCom, cEmp, cPocosMov, tPocos],
   downstream:[kpisDown, cPar, cCrk, cBomba, cMarg, cEbitda, cVendas, cShare, tRank, cBig3, cCanais, cForn, cEv, cEvMix],
   argentina:[kpisAr, cArVM, cArVMOp, cArRank, cArProdV, cArNovos, cArPoc, cArGas, cArShare, cArVol],
 };

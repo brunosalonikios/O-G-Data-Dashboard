@@ -332,7 +332,8 @@ def fetch_field_operator():
 
 # Campos que começaram a produzir depois de dez/2023 (sem operador no arquivo
 # de referência da ANP). Lista fixa, não é entrada manual recorrente.
-OPERADOR_EXTRA = {"BACALHAU": "Equinor", "BACALHAU NORTE": "Equinor"}
+OPERADOR_EXTRA = {"BACALHAU": "Equinor", "BACALHAU NORTE": "Equinor", "WAHOO": "PRIO",
+                  "GAVIÃO MATEIRO": "Eneva", "GAVIÃO AZUL": "Eneva", "JAPIIM": "Eneva"}
 
 
 def operator_group(name: str) -> str:
@@ -741,6 +742,15 @@ def compute_parity(fred, ptax, anp_ppi, pb):
             if d in liq:
                 row[f"pbliq_{prod}"] = liq[d]
                 row[f"descliq_{prod}"] = liq[d] / ppi - 1
+    # paridade de exportação (referência): PPI menos duas vezes os custos logísticos do diesel
+    # (ida e volta). Usamos o k do diesel para os dois produtos porque o k da gasolina absorve a
+    # diferença de especificação da cotação USGC e pode ficar negativo.
+    kd = ffill_series(k_hist["diesel"], days) if k_hist["diesel"] else {}
+    for d, row in res["diario"].items():
+        if d in kd and d in fx and kd[d] > 0:
+            for prod in ("diesel", "gasolina"):
+                if f"ppi_{prod}" in row:
+                    row[f"ppe_{prod}"] = row[f"ppi_{prod}"] - 2 * kd[d] * fx[d]
     # semanal (sexta-feira de referência) para o gráfico
     wk = defaultdict(list)
     for d, row in res["diario"].items():
@@ -754,8 +764,8 @@ def compute_parity(fred, ptax, anp_ppi, pb):
     for w in sorted(wk):
         rs = wk[w]
         o = {"semana": w}
-        for f in ("ppi_diesel", "pb_diesel", "pbliq_diesel", "desc_diesel", "descliq_diesel",
-                  "ppi_gasolina", "pb_gasolina", "pbliq_gasolina", "desc_gasolina", "descliq_gasolina"):
+        for f in ("ppi_diesel", "ppe_diesel", "pb_diesel", "pbliq_diesel", "desc_diesel", "descliq_diesel",
+                  "ppi_gasolina", "ppe_gasolina", "pb_gasolina", "pbliq_gasolina", "desc_gasolina", "descliq_gasolina"):
             v = [r[f] for r in rs if f in r]
             if v:
                 o[f] = r2(statistics.mean(v), 4)
