@@ -854,6 +854,35 @@ def fetch_ev():
     return cache_json(CACHE / "ev.json", 12, build)
 
 
+@section("brent_futuro")
+def fetch_brent_futuro():
+    """Futuro de Brent (1º vencimento, BZ=F) e WTI (CL=F) via Yahoo Finance: fechamentos diários
+    desde 2015 e cotação do dia em intervalos de 5 min. A EIA (spot) só sai com dias de atraso."""
+    import datetime as _dt
+    base = "https://query2.finance.yahoo.com/v8/finance/chart/{s}"
+    out = {}
+    for nome, sym in (("brent", "BZ=F"), ("wti", "CL=F")):
+        d = json.loads(get(base.format(s=sym), params={"period1": 1420070400, "period2": int(time.time()) + 86400,
+                                                         "interval": "1d"}, timeout=60).content)["chart"]["result"][0]
+        q = d["indicators"]["quote"][0]["close"]
+        diario = {}
+        for t, v in zip(d["timestamp"], q):
+            if v is not None:
+                diario[_dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%d")] = round(v, 2)
+        i = json.loads(get(base.format(s=sym), params={"range": "1d", "interval": "5m"}, timeout=60).content)["chart"]["result"][0]
+        m = i["meta"]
+        intradia = [[_dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%dT%H:%MZ"), round(v, 2)]
+                    for t, v in zip(i.get("timestamp") or [], i["indicators"]["quote"][0]["close"]) if v is not None]
+        hora = _dt.datetime.fromtimestamp(m["regularMarketTime"], _dt.UTC)
+        diario[hora.strftime("%Y-%m-%d")] = round(m["regularMarketPrice"], 2)
+        out[nome] = {"preco": round(m["regularMarketPrice"], 2), "hora": hora.strftime("%Y-%m-%dT%H:%MZ"),
+                     "fech_anterior": m.get("previousClose") or m.get("chartPreviousClose"),
+                     "diario": sorted(diario.items()), "intradia": intradia}
+    if len(out.get("brent", {}).get("diario", [])) < 1000:
+        raise RuntimeError("histórico do Brent curto demais")
+    return out
+
+
 def main():
     prev = json.loads(OUT.read_text()) if OUT.exists() else {}
 
@@ -873,6 +902,7 @@ def main():
     argp = fetch_argentina_pozos()
     pocos = fetch_pocos_br(opmap)
     ev = fetch_ev()
+    bfut = fetch_brent_futuro()
 
     D = dict(prev)  # mantém blocos anteriores se algo falhar
     D["gerado_em"] = prev.get("gerado_em")
@@ -974,6 +1004,8 @@ def main():
         D["pocos_br"] = pocos
     if ev:
         D["ev"] = ev
+    if bfut:
+        D["brent_futuro"] = bfut
     # ---- composição do preço na bomba: série acumulada a cada semana nova
     comp_path = ROOT / "data" / "cache" / "composicao.json"
     hist = json.loads(comp_path.read_text()) if comp_path.exists() else {}

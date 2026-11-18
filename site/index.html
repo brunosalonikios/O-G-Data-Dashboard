@@ -111,7 +111,7 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <div class="seg" data-for="oil"><button aria-pressed="false" data-v="1d">1D</button><button aria-pressed="false" data-v="1s">1S</button><button aria-pressed="false" data-v="1m">1M</button><button aria-pressed="false" data-v="3m">3M</button><button aria-pressed="true" data-v="1a">1A</button><button aria-pressed="false" data-v="5a">5A</button><button aria-pressed="false" data-v="tudo">Desde 2015</button></div></div>
     <div class="oilstats" id="oilstats"></div>
     <div class="chart"><canvas id="c-oil"></canvas></div>
-    <div class="src">Fonte: EIA (spot Brent Europa e WTI Cushing), com atraso de alguns dias úteis.</div>
+    <div class="src" id="s-oil">Fonte: EIA (spot Brent Europa e WTI Cushing), com atraso de alguns dias úteis.</div>
   </section>
 
   <nav class="tabs" role="tablist">
@@ -575,32 +575,39 @@ function cCrk(){
 
 // ---------- preço do petróleo
 function cOil(){
-  const M=D.mercado; if(!M?.brent_diario) return;
-  const B=M.brent_diario, W=Object.fromEntries((M.wti_diario||[]).map(r=>[r[0],r[1]]));
+  const M=D.mercado||{}, F=D.brent_futuro, fut=!!F?.brent?.diario?.length;
+  if(!fut && !M.brent_diario) return;
+  const B=fut?F.brent.diario:M.brent_diario, WA=(fut?F.wti?.diario:M.wti_diario)||[];
+  let W=Object.fromEntries(WA.map(r=>[r[0],r[1]]));
   const last=B[B.length-1][0], dt=new Date(last+'T00:00:00Z');
-  const WA=(M.wti_diario||[]);
+  const hm=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
+  const intra=fut&&state.oil==='1d'&&F.brent.intradia?.length>1;
   const back={ '1d':0, '1s':7, '1m':30, '3m':91, '1a':365, '5a':1826, 'tudo':1e5 }[state.oil];
   // data-base: o último dado anterior ao início do período (no 1D, o pregão anterior)
   const ref=(S)=>{ if(!S.length) return null; if(state.oil==='1d') return S[S.length-2]||S[0];
     const t=new Date(dt-back*864e5).toISOString().slice(0,10); let v=S[0]; for(const r of S){ if(r[0]<=t) v=r; else break; } return v; };
   const B0=ref(B), W0=ref(WA);
-  const R=B.filter(r=>r[0]>=B0[0]);
-  const bl=B[B.length-1][1], wl=W[last];
+  let R=B.filter(r=>r[0]>=B0[0]);
+  if(intra){ R=F.brent.intradia; W=Object.fromEntries((F.wti?.intradia||[]).map(r=>[r[0],r[1]])); }
+  const bl=B[B.length-1][1], wl=WA.length?WA[WA.length-1][1]:null;
   const wlast=WA.length?WA[WA.length-1]:null;
   const yr=B.filter(r=>r[0]>=last.slice(0,4)+'-01-01').map(r=>r[1]);
   const pc=(a,b)=>a&&b?`<span class="${a>=b?'up':'down'}">${pctf(a/b-1)}</span>`:'–';
   const plab={'1d':'No dia','1s':'Na semana','1m':'Em 1 mês','3m':'Em 3 meses','1a':'Em 12 meses','5a':'Em 5 anos','tudo':'Desde 2015'}[state.oil];
   const R0=B0;
-  $('#oilstats').innerHTML=`<div>Brent · ${dlab(last)}<b>US$ ${fmt(bl,2)}</b></div>`+
+  const quando=fut&&F.brent.hora?`${dlab(F.brent.hora.slice(0,10))}, ${hm(F.brent.hora)}`:dlab(last);
+  $('#oilstats').innerHTML=`<div>Brent · ${quando}<b>US$ ${fmt(bl,2)}</b></div>`+
     `<div>Brent ${plab.toLowerCase()}<b>${pc(bl,B0?.[1])}</b><small class="sub">desde ${dlab(B0[0])} (US$ ${fmt(B0[1],2)})</small></div>`+
     `<div>Brent, média ${last.slice(0,4)}<b>US$ ${fmt(yr.reduce((a,b)=>a+b,0)/yr.length,1)}</b></div>`+
     `<div class="minor">WTI<b>${wlast?'US$ '+fmt(wlast[1],2):'–'}</b><small class="sub">${plab.toLowerCase()}: ${pc(wlast?.[1],W0?.[1])} · spread ${wl!=null?'US$ '+fmt(bl-wl,2):'–'}</small></div>`;
-  const lab = ['5a','tudo'].includes(state.oil) ? (k=>mlab(k.slice(0,7))) : dlab;
+  const lab = intra ? hm : ['5a','tudo'].includes(state.oil) ? (k=>mlab(k.slice(0,7))) : dlab;
   const ini={Brent:R0?.[1], WTI:W0?.[1]};
   const o=base({zero:false, ytick:v=>'US$ '+fmt(v,0), tip:c=>` ${c.dataset.label}: US$ ${fmt(c.parsed.y,2)}/bbl`+(ini[c.dataset.label]?` (${pctf(c.parsed.y/ini[c.dataset.label]-1)} no período)`:'')});
-  o.plugins.tooltip.callbacks.title=it=>dlab(R[it[0].dataIndex][0]);
+  o.plugins.tooltip.callbacks.title=it=>intra?dlab(R[it[0].dataIndex][0].slice(0,10))+', '+hm(R[it[0].dataIndex][0]):dlab(R[it[0].dataIndex][0]);
   o.scales.x.ticks.callback=function(v){ return lab(R[v][0]); }; o.scales.x.ticks.maxTicksLimit=8;
   o.elements.line.borderWidth=1.6; o.elements.line.tension=0; if(R.length<40) o.elements.point.radius=3;
+  $('#d-oil').textContent=intra?'US$ por barril, hoje, a cada 5 minutos (horário de Brasília). WTI tracejado, como referência.':'US$ por barril, diário. WTI tracejado, como referência.';
+  $('#s-oil').textContent=fut?'Fonte: contratos futuros de 1º vencimento (Brent ICE e WTI Nymex), via Yahoo Finance, atualizados a cada hora; fechamento diário até a véspera e cotação do dia. Se essa fonte falhar, o gráfico usa o spot da EIA, que sai com alguns dias de atraso.':'Fonte: EIA (spot Brent Europa e WTI Cushing), com atraso de alguns dias úteis.';
   draw('c-oil',{type:'line', data:{labels:R.map(r=>r[0]), datasets:[line('Brent', R.map(r=>r[1]), S(1), {borderWidth:2.2}), line('WTI', R.map(r=>W[r[0]]??null), css('--text-muted'), {spanGaps:true, borderWidth:1, borderDash:[4,3], pointRadius:0})]}, options:o});
 }
 
@@ -773,7 +780,7 @@ function stamp(){
   const f=x=>x.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
   const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok).map(([k])=>k);
   el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte com falha nesta rodada (mantido o último dado): ${bad.join(', ')}</span>`:''}`;
-  const names={anp_distribuidoras:'ANP vendas por distribuidora',anp_pocos:'ANP poço a poço',anfavea_ev:'Anfavea (elétricos)',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  const names={anp_distribuidoras:'ANP vendas por distribuidora',anp_pocos:'ANP poço a poço',anfavea_ev:'Anfavea (elétricos)',brent_futuro:'Brent futuro (Yahoo Finance)',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
   $('#fontes').innerHTML='<b>Situação das fontes na última rodada:</b> '+Object.entries(META.fontes||{}).map(([k,v])=>`${names[k]||k} ${v.ok?'✓':'✗'}`).join(' · ');
 }
 
