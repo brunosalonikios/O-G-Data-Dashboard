@@ -865,6 +865,14 @@ def fetch_producao_empresas():
     return cache_json(CACHE / "comunicados_producao.json", 2, build)
 
 
+@section("anp_diario")
+def fetch_anp_diario():
+    """Produção diária por empresa (Painel Dinâmico de Produção Diária da ANP, Power BI público)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import anp_diario
+    return anp_diario.build(lambda u: get(u, timeout=60))
+
+
 @section("anfavea_ev")
 def fetch_ev():
     """Emplacamentos de leves por combustível (Carta da Anfavea). Recalcula a cada 12 h."""
@@ -930,6 +938,7 @@ def main():
     argp = fetch_argentina_pozos()
     pocos = fetch_pocos_br(opmap)
     prod_emp = fetch_producao_empresas()
+    diario = fetch_anp_diario()
     ev = fetch_ev()
     bfut = fetch_brent_futuro()
 
@@ -1035,6 +1044,8 @@ def main():
         D["ev"] = ev
     if prod_emp:
         D["producao_comunicados"] = prod_emp
+    if diario:
+        D["anp_diario"] = diario
     if bfut:
         D["brent_futuro"] = bfut
     # ---- composição do preço na bomba: série acumulada a cada semana nova

@@ -150,10 +150,10 @@ h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.01em}
       <div class="row"><div><h2>Produção trimestral por empresa, mês a mês</h2><div class="desc" id="d-emp">Média diária de cada mês, agrupada por trimestre.</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" data-for="emp"><button aria-pressed="true" data-v="Petrobras">Petrobras</button><button aria-pressed="false" data-v="Brava Energia">Brava</button><button aria-pressed="false" data-v="PetroReconcavo">PetroReconcavo</button><button aria-pressed="false" data-v="PRIO">PRIO</button></div>
         <div class="seg" data-for="empm"><button aria-pressed="true" data-v="boe">Óleo equivalente</button><button aria-pressed="false" data-v="oil">Petróleo</button><button aria-pressed="false" data-v="gas">Gás</button></div>
-        <div class="seg" data-for="empb"><button aria-pressed="true" data-v="rel">Comunicado da empresa</button><button aria-pressed="false" data-v="anp">ANP (operada)</button></div></div></div>
+        <div class="seg" data-for="empb"><button aria-pressed="true" data-v="anp">ANP (operada)</button><button aria-pressed="false" data-v="rel">Comunicado da empresa</button></div></div></div>
       <div class="margbig" id="empkpis"></div>
       <div class="chart"><canvas id="c-emp"></canvas></div>
-      <div class="src">Fontes: comunicados mensais de produção na CVM (PRIO, Brava, PetroReconcavo), que saem no começo do mês seguinte, preliminares e na participação da empresa; e ANP, produção por poço e zona (mensal, uns 45 dias de atraso), somada por campo operado. Na base ANP é a produção operada, 100% dos campos em que a empresa é operadora (não a parcela da empresa nem campos em que ela é só sócia), por isso difere dos números de produção própria dos releases. A série inteira usa o operador atual de cada campo: um campo comprado aparece em toda a história da empresa (base comparável). Até mai/25 o arquivo da ANP traz o petróleo dividido pelos dias do mês; corrigimos. Óleo equivalente: 1 mil m³ de gás = 1 m³ de óleo. A ANP publica por poço só dados mensais; não há série diária por poço nos dados abertos.</div>
+      <div class="src">Fontes: comunicados mensais de produção na CVM (PRIO, Brava, PetroReconcavo), que saem no começo do mês seguinte, preliminares e na participação da empresa; e ANP, produção por poço e zona (mensal, uns 45 dias de atraso), somada por campo operado. Na base ANP é a produção operada, 100% dos campos em que a empresa é operadora (não a parcela da empresa nem campos em que ela é só sócia), por isso difere dos números de produção própria dos releases. A série inteira usa o operador atual de cada campo: um campo comprado aparece em toda a história da empresa (base comparável). Até mai/25 o arquivo da ANP traz o petróleo dividido pelos dias do mês; corrigimos. Óleo equivalente: 1 mil m³ de gás = 1 m³ de óleo. Meses depois do último arquivo mensal: média do Painel Dinâmico de Produção Diária da ANP (volumes medidos enviados pelas operadoras em até 3 dias úteis; o mês corrente vai enchendo a cada dia). Usamos o diário só quando ele bate com o arquivo mensal no último mês em comum; ele não cobre bem a produção em terra.</div>
     </div>
     <div class="sect">Acompanhamento por poço</div>
     <div class="card wide">
@@ -360,7 +360,7 @@ const mlab = k => { const [y,m]=k.split('-'); return MES[+m-1]+'/'+y.slice(2); }
 const dlab = k => { const [y,m,d]=k.split('-'); return d+'/'+m+'/'+y.slice(2); };
 const S = i => css('--s'+i);
 let D = null, META = null; const charts = {};
-const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', pvar:'quedas', ev:'un', emp:'Petrobras', empm:'boe', empb:'rel', tab:'upstream'};
+const state = {prod:'oil', vendas:'mm12', com:'exp', par:'diesel', crk:'diesel', bomba:'diesel', oil:'1a', dprod:'diesel', forn:'diesel', arprod:'oil', arv:'diesel', arvm:'oil', marg:'diesel', pvar:'quedas', ev:'un', emp:'Petrobras', empm:'boe', empb:'anp', tab:'upstream'};
 const PNOME = {diesel:'diesel B', gasolina:'gasolina C', etanol:'etanol hidratado'};
 
 function base(opts={}){
@@ -398,14 +398,31 @@ function cEmp(){
   { const b=document.querySelector('.seg[data-for=empb] button[data-v=rel]'), a=document.querySelector('.seg[data-for=empb] button[data-v=anp]');
     b.disabled=!temRel; b.style.opacity=temRel?'':'.4'; b.title=temRel?'':'A Petrobras não divulga produção mensal';
     b.setAttribute('aria-pressed', String(!!rel)); a.setAttribute('aria-pressed', String(!rel)); }
-  let meses, v, un;
+  let meses, v, un, diaInfo={}, cobertura=null;
   if(rel){
     meses=Object.keys(C).sort().filter(m=>C[m][mt]!=null);
     v=meses.map(m=>C[m][mt]/1000); un=mt==='gas'?'mil boe/d':mt==='oil'?'mil bbl/d':'mil boe/d';
   } else {
-    meses=E.meses;
+    meses=E.meses.slice();
     v=meses.map((m,i)=>mt==='oil'?d.oil[i]/1000:mt==='gas'?d.gas[i]/1000:(d.oil[i]+d.gas[i]*6.28981)/1000);
     un=mt==='gas'?'milhões m³/d':mt==='oil'?'mil bbl/d':'mil boe/d';
+    // meses depois do último arquivo mensal: média do painel diário da ANP (se ele cobre bem a empresa)
+    const Dd=D.anp_diario?.dias?.[emp]; diaInfo={};
+    if(Dd){
+      const porMes={}; Object.entries(Dd).forEach(([dia,x])=>{ (porMes[dia.slice(0,7)]=porMes[dia.slice(0,7)]||[]).push(x); });
+      const med=m=>{ const a=porMes[m]; if(!a) return null; const o=a.reduce((s,x)=>s+x[0],0)/a.length, g=a.reduce((s,x)=>s+x[1],0)/a.length; return {o,g,n:a.length}; };
+      const boeM=i=>d.oil[i]+d.gas[i]*6.28981;
+      const comum=E.meses.filter(m=>{const x=med(m); return x && x.n>=new Date(+m.slice(0,4),+m.slice(5,7),0).getDate()-1;});
+      const mc=comum[comum.length-1], xc=mc&&med(mc);
+      cobertura = xc ? (xc.o+xc.g*6.28981)/boeM(E.meses.indexOf(mc)) : null;
+      if(cobertura!=null && cobertura>0.9 && cobertura<1.1){
+        Object.keys(porMes).sort().filter(m=>m>E.meses[E.meses.length-1]).forEach(m=>{
+          const x=med(m); meses.push(m); v.push(mt==='oil'?x.o/1000:mt==='gas'?x.g/1000:(x.o+x.g*6.28981)/1000);
+          const ndias=new Date(+m.slice(0,4),+m.slice(5,7),0).getDate();
+          diaInfo[m]={n:x.n, ndias, ate:Object.keys(Dd).filter(k=>k.startsWith(m)).sort().pop()};
+        });
+      }
+    }
   }
   if(!meses.length) return;
   const dec=1;
@@ -421,15 +438,21 @@ function cEmp(){
   const cor=S(1);
   const ds=[0,1,2].map(j=>({type:'bar', label:`${j+1}º mês do tri`, data:qs.map(t=>t.v[j]), backgroundColor:cor+['59','99','ff'][j], barPercentage:.95, categoryPercentage:.8, borderRadius:2}));
   ds.push({type:'line', label:'Média do tri', data:qs.map(avg), showLine:false, borderColor:css('--text-primary'), backgroundColor:css('--text-primary'), pointStyle:'line', pointRadius:16, pointBorderWidth:2.5, pointHoverRadius:16});
-  const o=base({zero:true, ytick:v=>fmt(v,0), tip:c=>{ const t=qs[c.dataIndex]; if(c.dataset.type==='line') return ` Média do tri${t.v.some(x=>x==null)?' (parcial)':''}: ${fmt(c.parsed.y,dec)} ${un}`; const m=t.m[c.datasetIndex]; return m&&c.parsed.y!=null?` ${mlab(m)}: ${fmt(c.parsed.y,dec)} ${un}`:''; }});
+  const o=base({zero:true, ytick:v=>fmt(v,0), tip:c=>{ const t=qs[c.dataIndex]; if(c.dataset.type==='line') return ` Média do tri${t.v.some(x=>x==null)?' (parcial)':''}: ${fmt(c.parsed.y,dec)} ${un}`; const m=t.m[c.datasetIndex]; if(!m||c.parsed.y==null) return ''; const di=diaInfo[m]; return ` ${mlab(m)}: ${fmt(c.parsed.y,dec)} ${un}`+(di?` (dado diário ANP${di.n<di.ndias?`, parcial até ${dlab(di.ate)}`:''})`:''); }});
   o.scales.y.title={display:true, text:un, color:css('--text-secondary'), font:{size:11}};
   draw('c-emp',{type:'bar', data:{labels:L, datasets:ds}, options:o});
   const full=qs.filter(t=>t.v.every(x=>x!=null)), u=full[full.length-1], a=full[full.length-2], ya=full.find(t=>t.y===u.y-1&&t.q===u.q);
   const pc=(x,y)=>x!=null&&y?pctf(x/y-1):'–', lab=t=>`${t.q}T${String(t.y).slice(2)}`;
   const last=meses[meses.length-1], lv=v[v.length-1], pv=v[v.length-2];
-  $('#empkpis').innerHTML=`<div>Média ${lab(u)}<b>${fmt(avg(u),dec)}</b></div><div>vs. ${lab(a)}<b>${pc(avg(u),avg(a))}</b></div><div>vs. ${ya?lab(ya):'ano anterior'}<b>${ya?pc(avg(u),avg(ya)):'–'}</b></div><div>${mlab(last)}<b>${fmt(lv,dec)}</b></div><div>vs. mês anterior<b>${pc(lv,pv)}</b></div>`;
+  $('#empkpis').innerHTML=`<div>Média ${lab(u)}<b>${fmt(avg(u),dec)}</b></div><div>vs. ${lab(a)}<b>${pc(avg(u),avg(a))}</b></div><div>vs. ${ya?lab(ya):'ano anterior'}<b>${ya?pc(avg(u),avg(ya)):'–'}</b></div><div>${mlab(last)}${diaInfo[last]&&diaInfo[last].n<diaInfo[last].ndias?` (até ${dlab(diaInfo[last].ate).slice(0,5)})`:''}<b>${fmt(lv,dec)}</b></div><div>vs. mês anterior<b>${pc(lv,pv)}</b></div>`;
   const nome=emp==='Brava Energia'?'Brava':emp;
-  $('#d-emp').textContent=`${nome}: ${rel?'produção informada pela empresa no comunicado mensal (participação própria)':'produção operada segundo a ANP'}${emp==='Petrobras'?' (a Petrobras não divulga dado mensal; os meses chegam com o arquivo da ANP, uns 45 dias depois)':''}, ${mt==='oil'?'petróleo':mt==='gas'?'gás natural':'óleo equivalente'} em ${un}. Cada barra é a média diária de um mês; o traço é a média do trimestre. Último dado: ${mlab(last)}.`;
+  const ultD=diaInfo[last], mensalAte=E.meses[E.meses.length-1];
+  let fonteTxt;
+  if(rel) fonteTxt='produção informada pela empresa no comunicado mensal (participação própria)';
+  else if(Object.keys(diaInfo).length) fonteTxt=`produção operada segundo a ANP: arquivo mensal até ${mlab(mensalAte)} e, depois, média do painel de produção diária da ANP${ultD&&ultD.n<ultD.ndias?` (${mlab(last)} parcial, até ${dlab(ultD.ate)})`:''}`;
+  else if(D.anp_diario?.dias?.[emp] && cobertura!=null) fonteTxt=`produção operada segundo a ANP, até ${mlab(mensalAte)}. O painel diário da ANP não cobre bem a produção em terra da ${nome}, então os meses seguintes ficam vazios aqui; veja "Comunicado da empresa"`;
+  else fonteTxt=`produção operada segundo a ANP, até ${mlab(mensalAte)}`;
+  $('#d-emp').textContent=`${nome}: ${fonteTxt}. ${mt==='oil'?'Petróleo':mt==='gas'?'Gás natural':'Óleo equivalente'} em ${un}. Cada barra é a média diária de um mês; o traço é a média do trimestre.`;
 }
 
 // ---------- poço a poço (Brasil)
