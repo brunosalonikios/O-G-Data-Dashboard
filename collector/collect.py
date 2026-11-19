@@ -850,6 +850,21 @@ def fetch_pocos_br(opmap):
     return cache_json(CACHE / "pocos_br.json", 12, build)
 
 
+@section("comunicados_producao")
+def fetch_producao_empresas():
+    """Produção mensal informada por PRIO, Brava e PetroReconcavo (comunicados na CVM). A cada 6 h."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import producao_empresas
+    cp = CACHE / "comunicados_producao_docs.json"
+
+    def build():
+        cache = json.loads(cp.read_text()) if cp.exists() else {}
+        out = producao_empresas.build(lambda u: get(u, timeout=60), cache)
+        cp.write_text(json.dumps(cache, ensure_ascii=False, indent=1))
+        return out
+    return cache_json(CACHE / "comunicados_producao.json", 2, build)
+
+
 @section("anfavea_ev")
 def fetch_ev():
     """Emplacamentos de leves por combustível (Carta da Anfavea). Recalcula a cada 12 h."""
@@ -914,6 +929,7 @@ def main():
     ri = fetch_ri_distribuidoras()
     argp = fetch_argentina_pozos()
     pocos = fetch_pocos_br(opmap)
+    prod_emp = fetch_producao_empresas()
     ev = fetch_ev()
     bfut = fetch_brent_futuro()
 
@@ -1017,6 +1033,8 @@ def main():
         D["pocos_br"] = pocos
     if ev:
         D["ev"] = ev
+    if prod_emp:
+        D["producao_comunicados"] = prod_emp
     if bfut:
         D["brent_futuro"] = bfut
     # ---- composição do preço na bomba: série acumulada a cada semana nova
