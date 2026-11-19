@@ -395,7 +395,9 @@ function cEmp(){
   const emp=state.emp, mt=state.empm, d=E.dados[emp]; if(!d) return;
   const C=D.producao_comunicados?.empresas?.[emp], temRel=C && Object.keys(C).length>0;
   const rel=temRel && state.empb==='rel';
-  document.querySelector('.seg[data-for=empb]').style.visibility=temRel?'visible':'hidden';
+  { const b=document.querySelector('.seg[data-for=empb] button[data-v=rel]'), a=document.querySelector('.seg[data-for=empb] button[data-v=anp]');
+    b.disabled=!temRel; b.style.opacity=temRel?'':'.4'; b.title=temRel?'':'A Petrobras não divulga produção mensal';
+    b.setAttribute('aria-pressed', String(!!rel)); a.setAttribute('aria-pressed', String(!rel)); }
   let meses, v, un;
   if(rel){
     meses=Object.keys(C).sort().filter(m=>C[m][mt]!=null);
