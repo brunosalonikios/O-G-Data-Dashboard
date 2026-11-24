@@ -9,6 +9,16 @@
    "estadual": 1.17,
    "federal": 0.32,
    "petrobras": 2.83
+  },
+  {
+   "fim": "2026-11-21",
+   "ini": "2026-11-15",
+   "final": 7.26,
+   "distribuicao": 2.11,
+   "biocombustivel": 0.83,
+   "estadual": 1.17,
+   "federal": 0.32,
+   "petrobras": 2.83
   }
  ],
  "gasolina": [
@@ -18,6 +28,16 @@
    "final": 6.48,
    "distribuicao": 1.66,
    "biocombustivel": 1.11,
+   "estadual": 1.57,
+   "federal": 0.06,
+   "petrobras": 2.08
+  },
+  {
+   "fim": "2026-11-21",
+   "ini": "2026-11-15",
+   "final": 6.47,
+   "distribuicao": 1.63,
+   "biocombustivel": 1.13,
    "estadual": 1.57,
    "federal": 0.06,
    "petrobras": 2.08
