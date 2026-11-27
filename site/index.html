@@ -682,7 +682,7 @@ function cOil(){
   const plab={'1d':'No dia','1s':'Na semana','1m':'Em 1 mês','3m':'Em 3 meses','1a':'Em 12 meses','5a':'Em 5 anos','tudo':'Desde 2015'}[state.oil];
   const R0=B0;
   const quando=fut&&F.brent.hora?`${dlab(F.brent.hora.slice(0,10))}, ${hm(F.brent.hora)}`:dlab(last);
-  $('#oilstats').innerHTML=`<div>Brent · ${quando}<b>US$ ${fmt(bl,2)}</b></div>`+
+  $('#oilstats').innerHTML=`<div>Brent${F?.brent?.contrato?` (${F.brent.contrato})`:''} · ${quando}<b>US$ ${fmt(bl,2)}</b></div>`+
     `<div>Brent ${plab.toLowerCase()}<b>${pc(bl,B0?.[1])}</b><small class="sub">desde ${dlab(B0[0])} (US$ ${fmt(B0[1],2)})</small></div>`+
     `<div>Brent, média ${last.slice(0,4)}<b>US$ ${fmt(yr.reduce((a,b)=>a+b,0)/yr.length,1)}</b></div>`+
     `<div class="minor">WTI<b>${wlast?'US$ '+fmt(wlast[1],2):'–'}</b><small class="sub">${plab.toLowerCase()}: ${pc(wlast?.[1],W0?.[1])} · spread ${wl!=null?'US$ '+fmt(bl-wl,2):'–'}</small></div>`;
@@ -698,7 +698,7 @@ function cOil(){
     R.forEach((r,i)=>{ if((i===0||dia(r[0])!==dia(R[i-1][0])) && i-ultimo>=gap){ marcas[i]=dia(r[0]); ultimo=i; } });
     o.scales.x.ticks.autoSkip=false; o.scales.x.ticks.maxTicksLimit=undefined; o.scales.x.ticks.callback=function(v){ return marcas[v]??null; }; }
   $('#d-oil').textContent=intra?'US$ por barril, hoje, a cada 5 minutos (horário de Brasília). WTI tracejado, como referência.':hor?'US$ por barril, de hora em hora. WTI tracejado, como referência.':'US$ por barril, diário. WTI tracejado, como referência.';
-  $('#s-oil').textContent=fut?'Fonte: contratos futuros de 1º vencimento (Brent ICE e WTI Nymex), via Yahoo Finance, atualizados a cada hora; de hora em hora nos últimos 12 meses (1S a 1A) e fechamento diário antes disso (5A e desde 2015, o mais detalhado que a fonte oferece para períodos longos). Se essa fonte falhar, o gráfico usa o spot da EIA, que sai com alguns dias de atraso.':'Fonte: EIA (spot Brent Europa e WTI Cushing), com atraso de alguns dias úteis.';
+  $('#s-oil').textContent=fut?'Fonte: contratos futuros de 1º vencimento (Brent ICE e WTI Nymex), via Yahoo Finance. No Brent usamos o próprio contrato que vence primeiro (o mês M vence no último dia útil de M-2), sem a rolagem antecipada do contrato contínuo do Yahoo; atualizados a cada hora; de hora em hora nos últimos 12 meses (1S a 1A) e fechamento diário antes disso (5A e desde 2015, o mais detalhado que a fonte oferece para períodos longos). Se essa fonte falhar, o gráfico usa o spot da EIA, que sai com alguns dias de atraso.':'Fonte: EIA (spot Brent Europa e WTI Cushing), com atraso de alguns dias úteis.';
   draw('c-oil',{type:'line', data:{labels:R.map(r=>r[0]), datasets:[line('Brent', R.map(r=>r[1]), S(1), {borderWidth:2.2}), line('WTI', R.map(r=>W[r[0]]??null), css('--text-muted'), {spanGaps:true, borderWidth:1, borderDash:[4,3], pointRadius:0})]}, options:o});
 }
 

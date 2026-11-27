@@ -887,33 +887,89 @@ def fetch_ev():
     return cache_json(CACHE / "ev.json", 12, build)
 
 
+MESES_FUT = "FGHJKMNQUVXZ"
+
+
+def brent_vencimento_atual(hoje):
+    """Contrato de Brent (ICE) de 1º vencimento: o mês M vence no último dia útil do mês M-2.
+    O BZ=F do Yahoo rola dias antes do vencimento, o que muda o preço (às vezes US$ 4) antes da hora."""
+    import datetime as _dt
+    y, m = hoje.year, hoje.month
+    for k in range(1, 5):
+        mm, yy = (m + k - 1) % 12 + 1, y + (m + k - 1) // 12
+        venc_m, venc_y = (mm - 3) % 12 + 1, yy + (mm - 3) // 12   # mês M-2
+        ult = _dt.date(venc_y, venc_m % 12 + 1, 1) - _dt.timedelta(days=1) if venc_m < 12 else _dt.date(venc_y, 12, 31)
+        while ult.weekday() >= 5:
+            ult -= _dt.timedelta(days=1)
+        if hoje <= ult:
+            return f"BZ{MESES_FUT[mm - 1]}{str(yy)[2:]}.NYM", f"{MES_PT[mm - 1]}/{str(yy)[2:]}"
+    return "BZ=F", ""
+
+
+MES_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+
+
 @section("brent_futuro")
 def fetch_brent_futuro():
-    """Futuro de Brent (1º vencimento, BZ=F) e WTI (CL=F) via Yahoo Finance: fechamentos diários
-    desde 2015 e cotação do dia em intervalos de 5 min. A EIA (spot) só sai com dias de atraso."""
+    """Futuro de Brent (contrato de 1º vencimento da ICE) e WTI (CL=F) via Yahoo Finance: fechamentos
+    diários desde 2015, de hora em hora no último ano e a cada 5 min no dia. Cada rodada também grava a
+    cotação do momento (data/cache/cotacoes_snap.json), porque às vezes o Yahoo para de soltar as barras
+    intradiárias enquanto a cotação continua andando."""
     import datetime as _dt
     base = "https://query2.finance.yahoo.com/v8/finance/chart/{s}"
+    fmt_t = lambda t: _dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%dT%H:%MZ")   # noqa: E731
+    snap_p = CACHE / "cotacoes_snap.json"
+    snap = json.loads(snap_p.read_text()) if snap_p.exists() else {}
+    hoje = _dt.datetime.now(_dt.UTC).date()
     out = {}
-    for nome, sym in (("brent", "BZ=F"), ("wti", "CL=F")):
-        d = json.loads(get(base.format(s=sym), params={"period1": 1420070400, "period2": int(time.time()) + 86400,
-                                                         "interval": "1d"}, timeout=60).content)["chart"]["result"][0]
-        q = d["indicators"]["quote"][0]["close"]
-        diario = {}
-        for t, v in zip(d["timestamp"], q):
-            if v is not None:
-                diario[_dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%d")] = round(v, 2)
-        i = json.loads(get(base.format(s=sym), params={"range": "1d", "interval": "5m"}, timeout=60).content)["chart"]["result"][0]
+
+    def chart(sym, **params):
+        return json.loads(get(base.format(s=sym), params=params, timeout=60).content)["chart"]["result"][0]
+
+    def barras(d):
+        return [[fmt_t(t), round(v, 2)] for t, v in zip(d.get("timestamp") or [], d["indicators"]["quote"][0]["close"]) if v is not None]
+
+    for nome, cont in (("brent", "BZ=F"), ("wti", "CL=F")):
+        sym, contrato = brent_vencimento_atual(hoje) if nome == "brent" else (cont, "")
+        d = chart(cont, period1=1420070400, period2=int(time.time()) + 86400, interval="1d")
+        diario = {r[0][:10]: r[1] for r in barras(d)}
+        if sym != cont:   # últimos meses com o próprio contrato de 1º vencimento
+            try:
+                for t, v in barras(chart(sym, range="3mo", interval="1d")):
+                    diario[t[:10]] = v
+            except Exception as e:  # noqa: BLE001
+                print(f"Brent {sym} diário falhou: {e}")
+        i = chart(sym, range="1d", interval="5m")
         m = i["meta"]
-        intradia = [[_dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%dT%H:%MZ"), round(v, 2)]
-                    for t, v in zip(i.get("timestamp") or [], i["indicators"]["quote"][0]["close"]) if v is not None]
-        h = json.loads(get(base.format(s=sym), params={"range": "1y", "interval": "60m"}, timeout=60).content)["chart"]["result"][0]
-        horario = [[_dt.datetime.fromtimestamp(t, _dt.UTC).strftime("%Y-%m-%dT%H:%MZ"), round(v, 2)]
-                   for t, v in zip(h.get("timestamp") or [], h["indicators"]["quote"][0]["close"]) if v is not None]
+        intradia = barras(i)
+        horario = barras(chart(sym, range="1y", interval="60m"))
+        if sym != cont:   # o contrato novo tem pouco histórico horário: completa o início com a série contínua
+            try:
+                ini = horario[0][0] if horario else "9999"
+                horario = [r for r in barras(chart(cont, range="1y", interval="60m")) if r[0] < ini] + horario
+            except Exception as e:  # noqa: BLE001
+                print(f"Brent contínuo horário falhou: {e}")
         hora = _dt.datetime.fromtimestamp(m["regularMarketTime"], _dt.UTC)
-        diario[hora.strftime("%Y-%m-%d")] = round(m["regularMarketPrice"], 2)
-        out[nome] = {"preco": round(m["regularMarketPrice"], 2), "hora": hora.strftime("%Y-%m-%dT%H:%MZ"),
+        preco = round(m["regularMarketPrice"], 2)
+        hs = hora.strftime("%Y-%m-%dT%H:%MZ")
+        diario[hs[:10]] = preco
+        # cotações gravadas a cada rodada: completam as barras quando o Yahoo para de atualizá-las
+        lst = [r for r in snap.get(nome, []) if r[2] == sym]
+        if not lst or lst[-1][0] != hs:
+            lst.append([hs, preco, sym])
+        corte = (hora - _dt.timedelta(days=400)).strftime("%Y-%m-%dT%H:%MZ")
+        snap[nome] = [r for r in snap.get(nome, []) if r[2] != sym and r[0] >= corte] + [r for r in lst if r[0] >= corte]
+        ult_i = intradia[-1][0] if intradia else ""
+        ini_dia = (hora - _dt.timedelta(hours=24)).strftime("%Y-%m-%dT%H:%MZ")
+        intradia += [[t, p] for t, p, _ in lst if t > ult_i and t >= ini_dia]
+        if not intradia or intradia[-1][0] < hs:
+            intradia.append([hs, preco])
+        ult_h = horario[-1][0] if horario else ""
+        horario += [[t, p] for t, p, _ in lst if t > ult_h]
+        out[nome] = {"preco": preco, "hora": hs, "contrato": contrato, "simbolo": sym,
                      "fech_anterior": m.get("previousClose") or m.get("chartPreviousClose"),
                      "diario": sorted(diario.items()), "intradia": intradia, "horario": horario}
+    snap_p.write_text(json.dumps(snap, separators=(",", ":")))
     if len(out.get("brent", {}).get("diario", [])) < 1000:
         raise RuntimeError("histórico do Brent curto demais")
     return out
