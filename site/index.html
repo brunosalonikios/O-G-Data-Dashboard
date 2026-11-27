@@ -394,6 +394,14 @@ function base(opts={}){
   };
 }
 function draw(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart(document.getElementById(id), cfg); }
+// No celular a caixinha de valores ficava presa na tela depois do toque: some 2,5 s depois de soltar o
+// dedo, ou na hora ao tocar fora do gráfico.
+function limpaTip(ch){ if(!ch||!ch.tooltip) return; ch.setActiveElements([]); ch.tooltip.setActiveElements([], {x:0,y:0}); ch.update('none'); }
+let tipTimer=null;
+document.addEventListener('touchstart', e=>{ clearTimeout(tipTimer);
+  const alvo=e.target.closest?.('canvas'); Object.values(charts).forEach(ch=>{ if(ch && ch.canvas!==alvo) limpaTip(ch); }); }, {passive:true});
+document.addEventListener('touchend', e=>{ const alvo=e.target.closest?.('canvas'); if(!alvo) return;
+  const ch=Object.values(charts).find(c=>c&&c.canvas===alvo); clearTimeout(tipTimer); tipTimer=setTimeout(()=>limpaTip(ch), 2500); }, {passive:true});
 const line = (label, data, color, extra={}) => ({type:'line', label, data, borderColor:color, backgroundColor:color, ...extra});
 
 
