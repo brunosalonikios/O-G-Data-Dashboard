@@ -885,9 +885,12 @@ function stamp(){
   const el=$('#stamp'); if(!META){ el.textContent=''; return; }
   const t=new Date(META.verificado_em), ch=META.dados_alterados_em?new Date(META.dados_alterados_em):null;
   const f=x=>x.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
-  const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok).map(([k])=>k);
-  el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte com falha nesta rodada (mantido o último dado): ${bad.join(', ')}</span>`:''}`;
-  const names={anp_distribuidoras:'ANP vendas por distribuidora',anp_pocos:'ANP poço a poço',anfavea_ev:'Anfavea (elétricos)',brent_futuro:'Brent futuro (Yahoo Finance)',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  const names={anp_distribuidoras:'ANP vendas por distribuidora',anp_diario:'ANP produção diária (painel)',comunicados_producao:'Comunicados de produção (CVM)',anp_pocos:'ANP poço a poço',anfavea_ev:'Anfavea (elétricos)',brent_futuro:'Brent futuro (Yahoo Finance)',argentina_pozos:'Argentina poço a poço (PetroDB)',ri_distribuidoras:'RI distribuidoras (EBITDA/m³)',argentina:'Argentina (Min. Economia)',eia:"EIA (Brent, WTI, diesel e gasolina USGC)",bcb_ptax:'Banco Central (PTAX)',anp_producao_estado:'ANP produção oficial',anp_producao_campos:'ANP produção por poço/zona',anp_operadores:'ANP mapa de operadores',anp_vendas:'ANP vendas',anp_precos_bomba:'ANP preços na bomba',anp_ppi:'ANP PPI (calibração)',petrobras_precos:'Petrobras tabelas de preço',comex:'Comex Stat'};
+  // só avisa quando a fonte está sem atualizar há mais tempo que o normal (falhas pontuais são comuns,
+  // principalmente no site da ANP, e o painel mantém o último dado)
+  const LIM={brent_futuro:6, bcb_ptax:48, anp_diario:48};
+  const bad=Object.entries(META.fontes||{}).filter(([k,v])=>!v.ok && (!v.ultimo_ok || (Date.now()-new Date(v.ultimo_ok))/36e5 > (LIM[k]||96))).map(([k])=>k);
+  el.innerHTML=`<span class="dot ${bad.length?'warn':''}"></span>Verificado <b>${f(t)}</b>${ch?` · dados mudaram ${f(ch)}`:''}${bad.length?`<br><span class="err">Fonte sem atualizar há mais tempo que o normal (mantido o último dado): ${bad.map(k=>names[k]||k).join(', ')}</span>`:''}`;
   $('#fontes').innerHTML='<b>Situação das fontes na última rodada:</b> '+Object.entries(META.fontes||{}).map(([k,v])=>`${names[k]||k} ${v.ok?'✓':'✗'}`).join(' · ');
 }
 

@@ -1196,6 +1196,17 @@ def main():
         D["gerado_em"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     SITE_DATA.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(D, ensure_ascii=False, separators=(",", ":")))
+    # última vez que cada fonte funcionou: o site só avisa quando uma fonte está sem atualizar há muito
+    # tempo (o gov.br recusa conexões dos servidores do GitHub em boa parte das rodadas, e isso é normal)
+    ok_p = CACHE / "fontes_ultimo_ok.json"
+    ultimo_ok = json.loads(ok_p.read_text()) if ok_p.exists() else {}
+    agora = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    for n, st in STATUS.items():
+        if st["ok"]:
+            ultimo_ok[n] = agora
+        if n in ultimo_ok:
+            st["ultimo_ok"] = ultimo_ok[n]
+    ok_p.write_text(json.dumps(ultimo_ok, indent=1, sort_keys=True))
     META.write_text(json.dumps({
         "verificado_em": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "dados_alterados_em": D["gerado_em"],
